@@ -16,6 +16,7 @@ O arquivo `public/manifest.json` e sincronizado automaticamente pelos scripts do
 - `npm run dev`: aplica o manifesto de desenvolvimento e inicia o Vite em modo development
 - `npm run build:dev`: gera um build de desenvolvimento com backend local
 - `npm run build:store`: gera um build pronto para Chrome Web Store
+- `npm run assets:store`: gera screenshots e blocos promocionais em `store-assets/`
 - `npm run manifest:dev`: copia `manifest.dev.json` para `manifest.json`
 - `npm run manifest:store`: copia `manifest.store.json` para `manifest.json`
 
@@ -25,3 +26,16 @@ O arquivo `public/manifest.json` e sincronizado automaticamente pelos scripts do
 - `.env.production`: usa `https://linkedin-analyzer-backend-2v7h.onrender.com`
 
 Os builds usam o modo correspondente do Vite para resolver a URL da API sem depender de edicao manual antes da publicacao.
+
+## Assets da Chrome Web Store
+
+O comando `npm run assets:store` gera automaticamente as pecas de publicacao em `store-assets/`:
+
+- `screenshot-01-overview.png`
+- `screenshot-02-score.png`
+- `screenshot-03-insights.png`
+- `screenshot-04-pdf.png`
+- `promo-small-440x280.png`
+- `promo-marquee-1400x560.png`
+
+O script tambem salva a versao SVG de cada arte para facilitar ajustes posteriores.
