@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Politica de Privacidade | LinkedIn Analyzer</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3efe7;
+        --paper: #fffdf8;
+        --ink: #1d2a36;
+        --muted: #566575;
+        --line: #d7cfc2;
+        --accent: #0a66c2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background:
+          radial-gradient(
+            circle at top,
+            rgba(10, 102, 194, 0.12),
+            transparent 35%
+          ),
+          linear-gradient(180deg, #f7f2ea 0%, var(--bg) 100%);
+        color: var(--ink);
+      }
+
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 48px 20px 80px;
+      }
+
+      .card {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 0 20px 60px rgba(29, 42, 54, 0.08);
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2.2rem, 5vw, 3.4rem);
+        line-height: 1.05;
+      }
+
+      .summary {
+        margin: 0 0 28px;
+        font-size: 1.05rem;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+
+      section + section {
+        margin-top: 28px;
+        padding-top: 28px;
+        border-top: 1px solid var(--line);
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: 1.25rem;
+      }
+
+      p,
+      li {
+        font-size: 1rem;
+        line-height: 1.75;
+      }
+
+      ul {
+        margin: 12px 0 0;
+        padding-left: 20px;
+      }
+
+      .footer {
+        margin-top: 28px;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      @media (max-width: 640px) {
+        main {
+          padding: 24px 14px 48px;
+        }
+
+        .card {
+          padding: 22px;
+          border-radius: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article class="card">
+        <p class="eyebrow">LinkedIn Analyzer</p>
+        <h1>Politica de Privacidade</h1>
+        <p class="summary">
+          Esta pagina descreve quais dados a extensao coleta, como eles sao
+          utilizados e quais limites o projeto adota durante a analise de perfis
+          do LinkedIn.
+        </p>
+
+        <section>
+          <h2>1. Escopo</h2>
+          <p>
+            O LinkedIn Analyzer e uma extensao de navegador que analisa dados
+            visiveis de perfis do LinkedIn para gerar um diagnostico do perfil
+            profissional, incluindo score, pontos fortes, pontos fracos,
+            problemas identificados e sugestoes de melhoria.
+          </p>
+        </section>
+
+        <section>
+          <h2>2. Dados coletados</h2>
+          <p>
+            Quando o usuario solicita uma analise, a extensao coleta apenas
+            dados visiveis na pagina do perfil do LinkedIn aberta naquele
+            momento.
+          </p>
+          <ul>
+            <li>Nome do perfil</li>
+            <li>Headline</li>
+            <li>Experiencias exibidas na pagina</li>
+          </ul>
+          <p>
+            A extensao nao coleta mensagens privadas, credenciais, senhas,
+            informacoes financeiras, historico de navegacao fora da pagina
+            analisada ou qualquer informacao nao visivel do perfil.
+          </p>
+        </section>
+
+        <section>
+          <h2>3. Como os dados sao usados</h2>
+          <p>
+            Os dados coletados sao enviados ao backend do LinkedIn Analyzer
+            exclusivamente para processar a analise solicitada pelo usuario. O
+            resultado retornado pode incluir classificacao do perfil, benchmark,
+            resumo e sugestoes de melhoria, e pode ser exportado pelo usuario em
+            PDF.
+          </p>
+        </section>
+
+        <section>
+          <h2>4. Compartilhamento de dados</h2>
+          <p>
+            Os dados analisados nao sao vendidos nem compartilhados com
+            terceiros para publicidade, perfilizacao comercial ou qualquer
+            finalidade nao relacionada ao funcionamento da extensao.
+          </p>
+        </section>
+
+        <section>
+          <h2>5. Armazenamento e retencao</h2>
+          <p>
+            Os dados sao utilizados para gerar a resposta da analise. Se houver
+            retencao tecnica temporaria em logs ou infraestrutura, ela deve ser
+            limitada ao minimo necessario para operacao e diagnostico do
+            servico.
+          </p>
+        </section>
+
+        <section>
+          <h2>6. Seguranca</h2>
+          <p>
+            O LinkedIn Analyzer adota medidas tecnicas razoaveis para proteger
+            os dados transmitidos entre a extensao e o backend.
+          </p>
+        </section>
+
+        <section>
+          <h2>7. Controle do usuario</h2>
+          <p>
+            O usuario escolhe quando executar a analise. Sem essa acao
+            explicita, a extensao nao inicia o envio dos dados do perfil para o
+            backend.
+          </p>
+        </section>
+
+        <section>
+          <h2>8. Contato</h2>
+          <p>
+            Para duvidas sobre privacidade ou tratamento de dados, utilize o
+            canal de contato informado na pagina oficial do projeto ou na
+            publicacao da extensao.
+          </p>
+        </section>
+
+        <p class="footer">Ultima atualizacao: 24/03/2026.</p>
+      </article>
+    </main>
+  </body>
+</html>

@@ -54,6 +54,19 @@ Na extensao, a URL da API pode ser definida com `VITE_API_BASE_URL`. Sem isso, o
 
 Para desenvolvimento local da extensao, crie `extension/.env` com base em `extension/.env.example`.
 
+O repositorio agora inclui configuracoes por ambiente para a extensao:
+
+- `extension/.env.development` aponta para `http://localhost:3000`
+- `extension/.env.production` aponta para `https://linkedin-analyzer-backend-2v7h.onrender.com`
+- `extension/public/manifest.dev.json` inclui permissao de `localhost`
+- `extension/public/manifest.store.json` mantem apenas LinkedIn e Render para publicacao
+
+Com isso, o fluxo recomendado passa a ser:
+
+- `npm run dev` em `extension/` para trabalhar com backend local
+- `npm run build:dev` em `extension/` para gerar um pacote de desenvolvimento
+- `npm run build:store` em `extension/` para gerar o pacote pronto para Chrome Web Store
+
 Um exemplo de configuracao pode ser criado a partir de `backend/.env.example`.
 
 ## PDF de analise
@@ -77,6 +90,24 @@ O arquivo gerado inclui:
 
 - `backend/`: API responsavel pela analise dos dados do perfil
 - `extension/`: extensao do Chrome responsavel pela captura e exibicao do resultado
+- `PRIVACY_POLICY.md`: politica de privacidade versionada para publicacao em URL publica
+- `docs/`: arquivos estaticos para publicar a politica de privacidade no GitHub Pages
+
+## Publicar politica no GitHub Pages
+
+O repositorio agora inclui uma pagina HTML pronta em `docs/privacy-policy/index.html`.
+
+Para publicar:
+
+1. envie o repositorio atualizado para o GitHub
+2. abra `Settings > Pages`
+3. em `Build and deployment`, selecione `Deploy from a branch`
+4. escolha a branch principal e a pasta `docs`
+5. salve e aguarde a publicacao
+
+Se o repositorio continuar em `kleitonalbuquerque/linkedin-analyzer`, a URL esperada sera:
+
+- `https://kleitonalbuquerque.github.io/linkedin-analyzer/privacy-policy/`
 
 ## Deploy do backend no Render
 

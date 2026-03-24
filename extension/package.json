@@ -4,9 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "manifest:dev": "node scripts/use-manifest.mjs dev",
+    "manifest:store": "node scripts/use-manifest.mjs store",
+    "predev": "npm run manifest:dev",
+    "dev": "vite --mode development",
+    "build": "npm run build:store",
+    "prebuild:dev": "npm run manifest:dev",
+    "build:dev": "tsc -b && vite build --mode development",
+    "prebuild:store": "npm run manifest:store",
+    "build:store": "tsc -b && vite build",
     "lint": "eslint .",
+    "prepreview": "npm run manifest:store",
     "preview": "vite preview"
   },
   "dependencies": {
