@@ -9,6 +9,7 @@
   ],
   "host_permissions": [
     "http://localhost:3000/*",
+    "https://*.onrender.com/*",
     "https://www.linkedin.com/*"
   ],
   "action": {

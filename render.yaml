@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: linkedin-analyzer-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
