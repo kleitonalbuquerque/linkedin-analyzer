@@ -101,9 +101,10 @@ Para publicar:
 
 1. envie o repositorio atualizado para o GitHub
 2. abra `Settings > Pages`
-3. em `Build and deployment`, selecione `Deploy from a branch`
-4. escolha a branch principal e a pasta `docs`
-5. salve e aguarde a publicacao
+3. em `Build and deployment`, selecione `GitHub Actions`
+4. aguarde a execucao do workflow `Deploy GitHub Pages`
+
+Se o repositorio ainda estiver configurado como `Deploy from a branch`, troque para `GitHub Actions` para evitar o 404 da pasta `docs` nao publicada.
 
 Se o repositorio continuar em `kleitonalbuquerque/linkedin-analyzer`, a URL esperada sera:
 
