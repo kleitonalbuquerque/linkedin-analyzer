@@ -166,7 +166,6 @@ function App() {
     writeBlock(`Foco principal: ${analysis.foco}`);
     writeBlock(`Benchmark: ${analysis.benchmark}`);
     writeBlock(`Resumo: ${analysis.resumo}`);
-    writeBlock(`Origem da analise: ${analysis.provider}`);
 
     document.setFontSize(14);
     ensureSpace(24);
@@ -216,7 +215,6 @@ function App() {
           <p className="hero-copy">
             Capture o perfil aberto no LinkedIn, gere sugestoes com IA e exporte um PDF do resultado.
           </p>
-          <p className="api-hint">Backend: {API_BASE_URL}</p>
         </div>
 
         <div className="actions-row">
@@ -240,7 +238,6 @@ function App() {
               <div className="score-meta">
                 <span className="pill">{analysis.nivel}</span>
                 <span className="focus-pill">{analysis.foco}</span>
-                <span className="provider">{analysis.provider}</span>
               </div>
             </div>
 
