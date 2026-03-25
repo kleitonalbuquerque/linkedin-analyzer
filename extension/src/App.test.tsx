@@ -49,6 +49,7 @@ describe("App", () => {
     expect(await screen.findByText("82")).toBeInTheDocument();
     expect(screen.getByText("Bom posicionamento para o mercado.")).toBeInTheDocument();
     expect(screen.getByText("Boa densidade de palavras-chave")).toBeInTheDocument();
+    expect(screen.getByText("Criei APIs em Node.js")).toBeInTheDocument();
 
     const exportButton = screen.getByRole("button", { name: "Exportar PDF" });
     expect(exportButton).toBeEnabled();

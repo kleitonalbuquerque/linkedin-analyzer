@@ -222,4 +222,110 @@ describe("exportAnalysisPdf", () => {
     expect(addPage).toHaveBeenCalled();
     expect(save).toHaveBeenCalledWith("kleiton-albuquerque-analysis.pdf");
   });
+
+  it("includes captured experiences in the PDF when available", () => {
+    const text = vi.fn();
+
+    class FakePdf {
+      internal = {
+        pageSize: {
+          getHeight: () => 600,
+        },
+      };
+
+      setFontSize = vi.fn();
+      splitTextToSize = vi.fn((value: string) => [value]);
+      text = text;
+      addPage = vi.fn();
+      save = vi.fn();
+    }
+
+    exportAnalysisPdf(
+      createAnalysis(),
+      {
+        name: "Kleiton Albuquerque",
+        headline: "Backend Engineer",
+        experiences: ["Liderou APIs e integracoes para 120 clientes."],
+      },
+      FakePdf,
+    );
+
+    expect(text).toHaveBeenCalledWith("Experiencias analisadas", 40, expect.any(Number));
+    expect(text).toHaveBeenCalledWith(
+      ["1. Liderou APIs e integracoes para 120 clientes."],
+      40,
+      expect.any(Number),
+    );
+  });
+
+  it("truncates oversized PDF list entries to keep the layout stable", () => {
+    const text = vi.fn();
+
+    class FakePdf {
+      internal = {
+        pageSize: {
+          getHeight: () => 600,
+        },
+      };
+
+      setFontSize = vi.fn();
+      splitTextToSize = vi.fn((value: string) => [value]);
+      text = text;
+      addPage = vi.fn();
+      save = vi.fn();
+    }
+
+    exportAnalysisPdf(
+      createAnalysis(),
+      {
+        name: "Kleiton Albuquerque",
+        headline: "Backend Engineer",
+        experiences: ["Experiencia muito longa ".repeat(30)],
+      },
+      FakePdf,
+    );
+
+    expect(text).toHaveBeenCalledWith(
+      [expect.stringMatching(/^1\. .*\.\.\.$/)],
+      40,
+      expect.any(Number),
+    );
+  });
+
+  it("skips empty PDF sections without breaking the document", () => {
+    const text = vi.fn();
+
+    class FakePdf {
+      internal = {
+        pageSize: {
+          getHeight: () => 600,
+        },
+      };
+
+      setFontSize = vi.fn();
+      splitTextToSize = vi.fn((value: string) => [value]);
+      text = text;
+      addPage = vi.fn();
+      save = vi.fn();
+    }
+
+    exportAnalysisPdf(
+      {
+        ...createAnalysis(),
+        pontosFortes: [],
+        pontosFracos: [],
+        problemas: [],
+        sugestoes: [],
+      },
+      {
+        name: "Kleiton Albuquerque",
+        headline: "Backend Engineer",
+        experiences: [],
+      },
+      FakePdf,
+    );
+
+    expect(text).not.toHaveBeenCalledWith("Experiencias analisadas", 40, expect.any(Number));
+    expect(text).not.toHaveBeenCalledWith("Pontos fortes", 40, expect.any(Number));
+  });
 });

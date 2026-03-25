@@ -59,6 +59,9 @@ type PdfDocument = {
 
 type PdfConstructor = new (options: { unit: string; format: string }) => PdfDocument;
 
+const PDF_MAX_SECTION_ITEMS = 4;
+const PDF_MAX_TEXT_LENGTH = 260;
+
 export function isLinkedInProfileUrl(url?: string) {
   return typeof url === "string" && url.includes("linkedin.com/in/");
 }
@@ -169,13 +172,35 @@ export function exportAnalysisPdf(
     }
   };
 
+  const trimPdfText = (text: string) => text.length > PDF_MAX_TEXT_LENGTH
+    ? `${text.slice(0, PDF_MAX_TEXT_LENGTH - 3).trim()}...`
+    : text;
+
   const writeBlock = (text: string, fontSize = 12, gapAfter = 16) => {
     document.setFontSize(fontSize);
-    const lines = document.splitTextToSize(text, maxWidth);
+    const lines = document.splitTextToSize(trimPdfText(text), maxWidth);
     const height = lines.length * (fontSize + 2);
     ensureSpace(height + gapAfter);
     document.text(lines, left, cursorY);
     cursorY += height + gapAfter;
+  };
+
+  const writeSectionTitle = (title: string) => {
+    document.setFontSize(14);
+    ensureSpace(24);
+    document.text(title, left, cursorY);
+    cursorY += 20;
+  };
+
+  const writeListSection = (title: string, items: string[]) => {
+    if (!items.length) {
+      return;
+    }
+
+    writeSectionTitle(title);
+    items.slice(0, PDF_MAX_SECTION_ITEMS).forEach((item, index) => {
+      writeBlock(`${index + 1}. ${item}`, 12, 12);
+    });
   };
 
   document.setFontSize(20);
@@ -184,47 +209,18 @@ export function exportAnalysisPdf(
 
   writeBlock(`Perfil: ${profile?.name || "Nao informado"}`);
   writeBlock(`Headline: ${profile?.headline || "Nao informado"}`);
+
   writeBlock(`Nivel: ${analysis.nivel}`);
   writeBlock(`Score de mercado: ${analysis.score}/100`);
   writeBlock(`Foco principal: ${analysis.foco}`);
   writeBlock(`Benchmark: ${analysis.benchmark}`);
   writeBlock(`Resumo: ${analysis.resumo}`);
 
-  document.setFontSize(14);
-  ensureSpace(24);
-  document.text("Pontos fortes", left, cursorY);
-  cursorY += 20;
-
-  analysis.pontosFortes.forEach((item, index) => {
-    writeBlock(`${index + 1}. ${item}`, 12, 12);
-  });
-
-  document.setFontSize(14);
-  ensureSpace(24);
-  document.text("Pontos fracos", left, cursorY);
-  cursorY += 20;
-
-  analysis.pontosFracos.forEach((item, index) => {
-    writeBlock(`${index + 1}. ${item}`, 12, 12);
-  });
-
-  document.setFontSize(14);
-  ensureSpace(24);
-  document.text("Problemas identificados", left, cursorY);
-  cursorY += 20;
-
-  analysis.problemas.forEach((item, index) => {
-    writeBlock(`${index + 1}. ${item}`, 12, 12);
-  });
-
-  document.setFontSize(14);
-  ensureSpace(24);
-  document.text("Sugestoes prioritarias", left, cursorY);
-  cursorY += 20;
-
-  analysis.sugestoes.forEach((suggestion, index) => {
-    writeBlock(`${index + 1}. ${suggestion}`, 12, 12);
-  });
+  writeListSection("Experiencias analisadas", profile?.experiences || []);
+  writeListSection("Pontos fortes", analysis.pontosFortes);
+  writeListSection("Pontos fracos", analysis.pontosFracos);
+  writeListSection("Problemas identificados", analysis.problemas);
+  writeListSection("Sugestoes prioritarias", analysis.sugestoes);
 
   document.save(`${buildPdfFileName(profile)}-analysis.pdf`);
 

@@ -86,6 +86,17 @@ function App() {
               </div>
             </div>
 
+            {profile?.experiences?.length ? (
+              <div>
+                <p className="muted-label">Experiencias analisadas</p>
+                <ul className="bullet-list profile-list">
+                  {profile.experiences.map((experience, index) => (
+                    <li key={`${experience}-${index}`}>{experience}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             <div className="details-grid two-columns">
               <div>
                 <p className="muted-label">Pontos fortes</p>
