@@ -69,7 +69,7 @@ const LEADERSHIP_KEYWORDS = [
   "coordenacao",
 ];
 
-function normalizeProfile(data = {}) {
+export function normalizeProfile(data = {}) {
   const experiences = Array.isArray(data.experiences)
     ? data.experiences
         .map((experience) => String(experience).trim())
@@ -83,29 +83,29 @@ function normalizeProfile(data = {}) {
   };
 }
 
-function clampScore(score) {
+export function clampScore(score) {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function countKeywordHits(text) {
+export function countKeywordHits(text) {
   const lowerText = text.toLowerCase();
 
   return KEYWORDS.filter((keyword) => lowerText.includes(keyword)).length;
 }
 
-function countMatches(text, keywords) {
+export function countMatches(text, keywords) {
   const lowerText = text.toLowerCase();
 
   return keywords.filter((keyword) => lowerText.includes(keyword)).length;
 }
 
-function countMeasuredResults(experiences) {
+export function countMeasuredResults(experiences) {
   return experiences.filter((experience) =>
     /\d|%|kpi|roi|mrr|sql|usuarios|clientes/i.test(experience),
   ).length;
 }
 
-function scoreHeadline(headlineLength) {
+export function scoreHeadline(headlineLength) {
   if (headlineLength >= 80 && headlineLength <= 220) {
     return 20;
   }
@@ -121,7 +121,7 @@ function scoreHeadline(headlineLength) {
   return 0;
 }
 
-function scoreKeywords(keywordHits) {
+export function scoreKeywords(keywordHits) {
   if (keywordHits >= 5) {
     return 20;
   }
@@ -137,7 +137,7 @@ function scoreKeywords(keywordHits) {
   return 0;
 }
 
-function scoreExperiences(experiencesCount) {
+export function scoreExperiences(experiencesCount) {
   if (experiencesCount >= 5) {
     return 20;
   }
@@ -153,7 +153,7 @@ function scoreExperiences(experiencesCount) {
   return 0;
 }
 
-function scoreMeasuredResults(measuredResults) {
+export function scoreMeasuredResults(measuredResults) {
   if (measuredResults >= 3) {
     return 15;
   }
@@ -165,7 +165,7 @@ function scoreMeasuredResults(measuredResults) {
   return 0;
 }
 
-function determineNivel(score, experiencesCount, leadershipHits) {
+export function determineNivel(score, experiencesCount, leadershipHits) {
   if (score >= 85 || leadershipHits >= 2) {
     return experiencesCount >= 4 ? "Senior" : "Pleno";
   }
@@ -177,7 +177,7 @@ function determineNivel(score, experiencesCount, leadershipHits) {
   return "Junior";
 }
 
-function determineFoco(combinedText) {
+export function determineFoco(combinedText) {
   const focusScores = [
     { nome: "Frontend", score: countMatches(combinedText, FRONTEND_KEYWORDS) },
     { nome: "Backend", score: countMatches(combinedText, BACKEND_KEYWORDS) },
@@ -193,13 +193,13 @@ function determineFoco(combinedText) {
   return topFocus.score > 0 ? topFocus.nome : "Generalista";
 }
 
-function pushIfMissing(list, item) {
+export function pushIfMissing(list, item) {
   if (item && !list.includes(item)) {
     list.push(item);
   }
 }
 
-function buildProblemas({
+export function buildProblemas({
   headlineLength,
   keywordHits,
   measuredResults,
@@ -243,7 +243,7 @@ function buildProblemas({
   return problemas;
 }
 
-function buildPontosFortes({
+export function buildPontosFortes({
   foco,
   keywordHits,
   measuredResults,
@@ -275,7 +275,7 @@ function buildPontosFortes({
   return pontosFortes.slice(0, 4);
 }
 
-function buildPontosFracos({
+export function buildPontosFracos({
   keywordHits,
   measuredResults,
   experiencesCount,
@@ -302,7 +302,7 @@ function buildPontosFracos({
   return pontosFracos.slice(0, 4);
 }
 
-function buildBenchmark(score) {
+export function buildBenchmark(score) {
   if (score >= 85) {
     return "Acima da media do mercado para perfis competitivos no LinkedIn.";
   }
@@ -318,7 +318,7 @@ function buildBenchmark(score) {
   return "Abaixo da media do mercado. O perfil precisa de mais clareza, provas de impacto e palavras-chave relevantes.";
 }
 
-function buildRuleBasedAnalysis(profile) {
+export function buildRuleBasedAnalysis(profile) {
   const headlineLength = profile.headline.length;
   const combinedText = [profile.headline, ...profile.experiences].join(" ");
   const keywordHits = countKeywordHits(combinedText);
@@ -405,7 +405,7 @@ function buildRuleBasedAnalysis(profile) {
   };
 }
 
-function extractJsonBlock(text) {
+export function extractJsonBlock(text) {
   const fencedMatch = text.match(/```json\s*([\s\S]*?)\s*```/i);
 
   if (fencedMatch) {
@@ -422,7 +422,7 @@ function extractJsonBlock(text) {
   return text;
 }
 
-function sanitizeList(values, fallback) {
+export function sanitizeList(values, fallback) {
   const list = Array.isArray(values)
     ? values.map((value) => String(value).trim()).filter(Boolean)
     : [];
@@ -430,7 +430,7 @@ function sanitizeList(values, fallback) {
   return list.length > 0 ? list.slice(0, 4) : fallback;
 }
 
-function createGroqClient() {
+export function createGroqClient() {
   const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
@@ -440,7 +440,7 @@ function createGroqClient() {
   return new Groq({ apiKey });
 }
 
-function buildGroqPrompt(profile, baseAnalysis) {
+export function buildGroqPrompt(profile, baseAnalysis) {
   return [
     "Voce e um especialista em LinkedIn, recrutamento e posicionamento profissional.",
     "Analise o perfil abaixo em portugues do Brasil.",
@@ -465,7 +465,7 @@ function buildGroqPrompt(profile, baseAnalysis) {
   ].join("\n");
 }
 
-async function generateGroqAnalysis(profile, baseAnalysis) {
+export async function generateGroqAnalysis(profile, baseAnalysis) {
   const groq = createGroqClient();
 
   if (!groq) {
@@ -517,7 +517,7 @@ async function generateGroqAnalysis(profile, baseAnalysis) {
   };
 }
 
-function buildFallbackResponse(baseAnalysis) {
+export function buildFallbackResponse(baseAnalysis) {
   return {
     nivel: baseAnalysis.nivel,
     score: baseAnalysis.score,

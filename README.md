@@ -93,6 +93,29 @@ O arquivo gerado inclui:
 - `PRIVACY_POLICY.md`: politica de privacidade versionada para publicacao em URL publica
 - `docs/`: arquivos estaticos para publicar a politica de privacidade no GitHub Pages
 
+## Testes e coverage
+
+### Backend
+
+- execute `cd backend && npm test`
+- o comando roda os testes unitarios com Vitest e gera o relatorio de coverage no terminal
+- a configuracao valida cobertura minima de `90%` para `statements`, `branches`, `functions` e `lines`
+- a ultima validacao desta base ficou em `97.60%` de statements, `91.42%` de branches, `100%` de functions e `97.58%` de lines
+
+### Frontend
+
+- execute `cd extension && npm test`
+- o comando roda os testes unitarios do popup com Vitest, jsdom e React Testing Library e gera o relatorio de coverage no terminal
+- a configuracao do frontend tambem exige cobertura minima de `90%` em `statements`, `branches`, `functions` e `lines`
+- a ultima validacao desta base ficou em `100%` de statements, `93.47%` de branches, `100%` de functions e `100%` de lines
+
+### Execucao durante desenvolvimento
+
+- `cd backend && npm run test:watch`
+- `cd extension && npm run test:watch`
+
+Quando algum threshold ficar abaixo de `90%`, o comando de teste falha e mostra no terminal qual metrica precisa ser ajustada.
+
 ## Publicar politica no GitHub Pages
 
 O repositorio agora inclui uma pagina HTML pronta em `docs/privacy-policy/index.html`.

@@ -6,7 +6,9 @@ const MAX_TEXT_LENGTH = 600;
 const MAX_EXPERIENCES = 10;
 
 function normalizeString(value) {
-  return typeof value === "string" ? value.trim().slice(0, MAX_TEXT_LENGTH) : "";
+  return typeof value === "string"
+    ? value.trim().slice(0, MAX_TEXT_LENGTH)
+    : "";
 }
 
 function validateAnalyzePayload(payload) {
@@ -42,6 +44,8 @@ function validateAnalyzePayload(payload) {
     },
   };
 }
+
+export { normalizeString, validateAnalyzePayload };
 
 router.post("/", async (req, res) => {
   try {

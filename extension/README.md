@@ -16,9 +16,26 @@ O arquivo `public/manifest.json` e sincronizado automaticamente pelos scripts do
 - `npm run dev`: aplica o manifesto de desenvolvimento e inicia o Vite em modo development
 - `npm run build:dev`: gera um build de desenvolvimento com backend local
 - `npm run build:store`: gera um build pronto para Chrome Web Store
+- `npm run test`: executa os testes unitarios com coverage minimo de 90%
+- `npm run test:watch`: executa os testes em modo watch
 - `npm run assets:store`: gera screenshots e blocos promocionais em `store-assets/`
 - `npm run manifest:dev`: copia `manifest.dev.json` para `manifest.json`
 - `npm run manifest:store`: copia `manifest.store.json` para `manifest.json`
+
+## Testes do frontend
+
+Os testes do popup usam:
+
+- `vitest`
+- `jsdom`
+- `@testing-library/react`
+- `@testing-library/user-event`
+
+Para rodar localmente:
+
+- `npm test`
+
+O comando valida os fluxos principais do popup, a integracao com `chrome.tabs`, a chamada ao backend e a exportacao do PDF. A cobertura minima configurada e de 90% para statements, branches, functions e lines.
 
 ## Configuracao de backend
 

@@ -1,58 +1,12 @@
 import { useState } from "react";
-import { jsPDF } from "jspdf";
 
 import "./App.css";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-
-type AnalysisResult = {
-  nivel: string;
-  score: number;
-  foco: string;
-  pontosFortes: string[];
-  pontosFracos: string[];
-  problemas: string[];
-  benchmark: string;
-  resumo: string;
-  sugestoes: string[];
-  provider: string;
-};
-
-type LinkedInProfile = {
-  name?: string;
-  headline?: string;
-  experiences?: string[];
-};
-
-async function getProfileFromActiveTab(tabId: number) {
-  try {
-    const profile: LinkedInProfile = await chrome.tabs.sendMessage(tabId, {
-      type: "GET_PROFILE",
-    });
-
-    return profile;
-  } catch (error) {
-    console.warn("[LinkedIn Analyzer] Content script not ready, injecting it", error);
-
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ["content/script.js"],
-    });
-
-    const profile: LinkedInProfile = await chrome.tabs.sendMessage(tabId, {
-      type: "GET_PROFILE",
-    });
-
-    return profile;
-  }
-}
-
-function buildPdfFileName(profile: LinkedInProfile | null) {
-  return (profile?.name || "linkedin-profile")
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, "-")
-    .replaceAll(/(^-|-$)/g, "") || "linkedin-profile";
-}
+import {
+  analyzeActiveProfile,
+  exportAnalysisPdf,
+  type AnalysisResult,
+  type LinkedInProfile,
+} from "./lib/analyzer";
 
 function App() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -65,56 +19,10 @@ function App() {
       setIsAnalyzing(true);
       setError(null);
       setAnalysis(null);
-      console.info("[LinkedIn Analyzer] Starting profile analysis");
+      const result = await analyzeActiveProfile();
 
-      const [tab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-
-      if (!tab?.id) {
-        console.warn("[LinkedIn Analyzer] No active tab found");
-        setError("Nenhuma aba ativa encontrada.");
-        return;
-      }
-
-      if (!tab.url?.includes("linkedin.com/in/")) {
-        console.warn("[LinkedIn Analyzer] Active tab is not a LinkedIn profile", tab.url);
-        setError("Abra um perfil do LinkedIn antes de analisar.");
-        return;
-      }
-
-      const activeProfile = await getProfileFromActiveTab(tab.id);
-
-      if (!activeProfile.headline && (!activeProfile.experiences || activeProfile.experiences.length === 0)) {
-        console.warn("[LinkedIn Analyzer] Profile data was empty", activeProfile);
-        setError("Nao foi possivel capturar os dados do perfil exibido.");
-        return;
-      }
-
-      setProfile(activeProfile);
-      console.info("[LinkedIn Analyzer] Profile captured", activeProfile);
-
-      const res = await fetch(`${API_BASE_URL}/analyze`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(activeProfile),
-      });
-
-      if (!res.ok) {
-        const errorPayload = await res.json().catch(() => null);
-        const message = typeof errorPayload?.message === "string"
-          ? errorPayload.message
-          : `Backend returned ${res.status}`;
-
-        throw new Error(message);
-      }
-
-      const data = (await res.json()) as AnalysisResult;
-      console.info("[LinkedIn Analyzer] Analysis finished", data);
-      setAnalysis(data);
+      setProfile(result.profile);
+      setAnalysis(result.analysis);
     } catch (caughtError) {
       console.error("[LinkedIn Analyzer] Analysis failed", caughtError);
 
@@ -129,81 +37,7 @@ function App() {
   };
 
   const exportPdf = () => {
-    if (!analysis) {
-      return;
-    }
-
-    const document = new jsPDF({ unit: "pt", format: "a4" });
-    const pageHeight = document.internal.pageSize.getHeight();
-    const left = 40;
-    const maxWidth = 515;
-    let cursorY = 52;
-
-    const ensureSpace = (requiredHeight: number) => {
-      if (cursorY + requiredHeight > pageHeight - 40) {
-        document.addPage();
-        cursorY = 52;
-      }
-    };
-
-    const writeBlock = (text: string, fontSize = 12, gapAfter = 16) => {
-      document.setFontSize(fontSize);
-      const lines = document.splitTextToSize(text, maxWidth);
-      const height = lines.length * (fontSize + 2);
-      ensureSpace(height + gapAfter);
-      document.text(lines, left, cursorY);
-      cursorY += height + gapAfter;
-    };
-
-    document.setFontSize(20);
-    document.text("LinkedIn Analyzer Report", left, cursorY);
-    cursorY += 28;
-
-    writeBlock(`Perfil: ${profile?.name || "Nao informado"}`);
-    writeBlock(`Headline: ${profile?.headline || "Nao informado"}`);
-    writeBlock(`Nivel: ${analysis.nivel}`);
-    writeBlock(`Score de mercado: ${analysis.score}/100`);
-    writeBlock(`Foco principal: ${analysis.foco}`);
-    writeBlock(`Benchmark: ${analysis.benchmark}`);
-    writeBlock(`Resumo: ${analysis.resumo}`);
-
-    document.setFontSize(14);
-    ensureSpace(24);
-    document.text("Pontos fortes", left, cursorY);
-    cursorY += 20;
-
-    analysis.pontosFortes.forEach((item, index) => {
-      writeBlock(`${index + 1}. ${item}`, 12, 12);
-    });
-
-    document.setFontSize(14);
-    ensureSpace(24);
-    document.text("Pontos fracos", left, cursorY);
-    cursorY += 20;
-
-    analysis.pontosFracos.forEach((item, index) => {
-      writeBlock(`${index + 1}. ${item}`, 12, 12);
-    });
-
-    document.setFontSize(14);
-    ensureSpace(24);
-    document.text("Problemas identificados", left, cursorY);
-    cursorY += 20;
-
-    analysis.problemas.forEach((item, index) => {
-      writeBlock(`${index + 1}. ${item}`, 12, 12);
-    });
-
-    document.setFontSize(14);
-    ensureSpace(24);
-    document.text("Sugestoes prioritarias", left, cursorY);
-    cursorY += 20;
-
-    analysis.sugestoes.forEach((suggestion, index) => {
-      writeBlock(`${index + 1}. ${suggestion}`, 12, 12);
-    });
-
-    document.save(`${buildPdfFileName(profile)}-analysis.pdf`);
+    exportAnalysisPdf(analysis, profile);
   };
 
   return (
