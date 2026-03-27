@@ -251,6 +251,7 @@ describe("extractLinkedInProfileFromDocument", () => {
     expect(isMetadataHeadline("99 shares")).toBe(true);
     expect(isMetadataHeadline("Backend Engineer")).toBe(false);
     expect(isLikelyExternalHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
+    expect(isLikelyExternalHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
     expect(isLikelyExternalHeadline("Como escalar plataformas: lições práticas para engenharia moderna")).toBe(true);
     expect(isLikelyExternalHeadline("Full Stack Engineer | React | Node.js | Java")).toBe(false);
   });
@@ -283,6 +284,26 @@ describe("extractLinkedInProfileFromDocument", () => {
           <div>
             <h1>Kleiton Albuquerque</h1>
             <div class="text-body-medium">A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Engineer",
+      experiences: [],
+    });
+  });
+
+  it("ignores editorial headlines that start with 'Por Que'", () => {
+    document.title = "Kleiton Albuquerque - Software Engineer | LinkedIn";
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <h1>Kleiton Albuquerque</h1>
+            <div class="text-body-medium">Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar</div>
           </div>
         </section>
       </main>

@@ -96,6 +96,8 @@ const EDITORIAL_HEADLINE_PREFIXES = [
   "as ",
   "os ",
   "como ",
+  "por que ",
+  "porque ",
   "why ",
   "how ",
   "the ",

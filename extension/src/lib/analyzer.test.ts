@@ -58,8 +58,10 @@ describe("analyzer helpers", () => {
     expect(isLikelyExternalHeadline()).toBe(false);
     expect(isSuspiciousProfileHeadline("1 comentário")).toBe(true);
     expect(isSuspiciousProfileHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
+    expect(isSuspiciousProfileHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
     expect(isSuspiciousProfileHeadline("Backend Engineer")).toBe(false);
     expect(isLikelyExternalHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
+    expect(isLikelyExternalHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
     expect(isLikelyExternalHeadline("Como escalar plataformas: lições práticas para engenharia moderna")).toBe(true);
     expect(isLikelyExternalHeadline("How to scale Node.js APIs in production as a Backend Engineer")).toBe(false);
     expect(formatAnalysisProvider("local-fallback")).toBe("Analise local");
@@ -251,6 +253,25 @@ describe("analyzeActiveProfile", () => {
         sendMessage: vi.fn().mockResolvedValue({
           name: "Kleiton",
           headline: "A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas",
+          experiences: ["Resumo do perfil", "Projeto 1"],
+        }),
+      },
+    });
+
+    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
+      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
+    );
+  });
+
+  it("fails when the captured headline starts with a Portuguese editorial prefix", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([
+          { id: 10, url: "https://www.linkedin.com/in/teste/details/featured/" },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: 'Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar',
           experiences: ["Resumo do perfil", "Projeto 1"],
         }),
       },

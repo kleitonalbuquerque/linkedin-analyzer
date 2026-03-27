@@ -120,7 +120,7 @@ const EXTERNAL_HEADLINE_SOURCE_TERMS = [
   "estadão",
   "valor",
 ];
-const EDITORIAL_HEADLINE_PREFIXES = ["a ", "o ", "as ", "os ", "como ", "why ", "how ", "the "];
+const EDITORIAL_HEADLINE_PREFIXES = ["a ", "o ", "as ", "os ", "como ", "por que ", "porque ", "why ", "how ", "the "];
 
 function normalizeUnicodeText(value?: string) {
   return String(value || "")
