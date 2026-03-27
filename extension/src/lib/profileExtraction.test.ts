@@ -1,8 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { extractLinkedInProfileFromDocument } from "./profileExtraction";
 
 describe("extractLinkedInProfileFromDocument", () => {
+  beforeEach(() => {
+    document.title = "";
+    document.body.innerHTML = "";
+  });
+
   it("captures headline, about and experience items from profile sections", () => {
     document.body.innerHTML = `
       <main>
@@ -119,6 +124,76 @@ describe("extractLinkedInProfileFromDocument", () => {
           <div>
             <h1>Kleiton Albuquerque</h1>
             <div class="text-body-medium">Kleiton Albuquerque · 500+ followers</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "",
+      experiences: [],
+    });
+  });
+
+  it("ignores numeric-only headline fragments and falls back to the document title", () => {
+    document.title = "Kleiton Albuquerque - Frontend Engineer | LinkedIn";
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <div class="text-body-medium">719</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Frontend Engineer",
+      experiences: [],
+    });
+  });
+
+  it("uses section headings when about and experience ids are absent", () => {
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <h1>Kleiton Albuquerque</h1>
+            <div class="text-body-medium">Backend Engineer</div>
+          </div>
+        </section>
+        <section>
+          <h2>About</h2>
+          <p>Profissional com foco em Node.js, arquitetura de APIs e integrações complexas.</p>
+        </section>
+        <section>
+          <h2>Experience</h2>
+          <ul>
+            <li>Desenvolveu integrações e automações para múltiplos clientes enterprise.</li>
+          </ul>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Backend Engineer",
+      experiences: [
+        "Profissional com foco em Node.js, arquitetura de APIs e integrações complexas.",
+        "Desenvolveu integrações e automações para múltiplos clientes enterprise.",
+      ],
+    });
+  });
+
+  it("returns an empty headline when the title has no usable role fallback", () => {
+    document.title = "Kleiton Albuquerque | LinkedIn";
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <div class="text-body-medium">719</div>
           </div>
         </section>
       </main>

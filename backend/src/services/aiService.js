@@ -422,9 +422,27 @@ export function extractJsonBlock(text) {
   return text;
 }
 
+export function sanitizeModelText(value, fallback = "") {
+  const text = typeof value === "string" ? value.trim() : "";
+
+  if (!text) {
+    return fallback;
+  }
+
+  const brokenAmpersandMatches =
+    text.match(/&(?=[\p{L}\p{N}.,:;!?()%/-])/gu) || [];
+  const hasBrokenAmpersandEncoding =
+    brokenAmpersandMatches.length >= 4 &&
+    brokenAmpersandMatches.length / text.length > 0.08;
+
+  const repaired = hasBrokenAmpersandEncoding ? text.replaceAll("&", "") : text;
+
+  return repaired.replace(/\s+/g, " ").trim() || fallback;
+}
+
 export function sanitizeList(values, fallback) {
   const list = Array.isArray(values)
-    ? values.map((value) => String(value).trim()).filter(Boolean)
+    ? values.map((value) => sanitizeModelText(value)).filter(Boolean)
     : [];
 
   return list.length > 0 ? list.slice(0, 4) : fallback;
@@ -497,22 +515,19 @@ export async function generateGroqAnalysis(profile, baseAnalysis) {
     nivel: ["Junior", "Pleno", "Senior"].includes(parsed.nivel)
       ? parsed.nivel
       : baseAnalysis.nivel,
-    foco:
-      typeof parsed.foco === "string" && parsed.foco.trim()
-        ? parsed.foco.trim()
-        : baseAnalysis.foco,
+    foco: sanitizeModelText(parsed.foco)
+      ? sanitizeModelText(parsed.foco)
+      : baseAnalysis.foco,
     pontosFortes: sanitizeList(parsed.pontosFortes, baseAnalysis.pontosFortes),
     pontosFracos: sanitizeList(parsed.pontosFracos, baseAnalysis.pontosFracos),
     problemas: sanitizeList(parsed.problemas, baseAnalysis.problemas),
     sugestoes: sanitizeList(parsed.sugestoes, baseAnalysis.sugestoes),
-    benchmark:
-      typeof parsed.benchmark === "string" && parsed.benchmark.trim()
-        ? parsed.benchmark.trim()
-        : baseAnalysis.benchmark,
-    resumo:
-      typeof parsed.resumo === "string" && parsed.resumo.trim()
-        ? parsed.resumo.trim()
-        : baseAnalysis.resumo,
+    benchmark: sanitizeModelText(parsed.benchmark)
+      ? sanitizeModelText(parsed.benchmark)
+      : baseAnalysis.benchmark,
+    resumo: sanitizeModelText(parsed.resumo)
+      ? sanitizeModelText(parsed.resumo)
+      : baseAnalysis.resumo,
     provider: `groq:${DEFAULT_MODEL}`,
   };
 }

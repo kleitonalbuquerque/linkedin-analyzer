@@ -64,6 +64,8 @@ Para gerar o zip de publicacao por linha de comando no Windows:
 1. execute `npm run build:store`
 2. execute `powershell -Command "Compress-Archive -Path '.\\dist\\*' -DestinationPath '.\\linkedin-analyzer-extension.zip' -Force"`
 
-O arquivo final sera criado em `extension/linkedin-analyzer-extension.zip`.
+O arquivo final sera criado em `extension/linkedin-analyzer-extension.zip` e sera sobrescrito localmente a cada novo empacotamento.
 
 Esse comando compacta os arquivos dentro de `dist/`, nao a pasta `dist/` em si. Isso garante que `manifest.json` fique na raiz do zip, como esperado pela Chrome Web Store.
+
+O zip nao deve ser versionado no git. Gere-o novamente apenas quando precisar subir uma nova versao.

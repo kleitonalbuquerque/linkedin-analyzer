@@ -35,6 +35,7 @@ import {
   normalizeProfile,
   pushIfMissing,
   sanitizeList,
+  sanitizeModelText,
   scoreExperiences,
   scoreHeadline,
   scoreKeywords,
@@ -183,8 +184,14 @@ describe("aiService helpers", () => {
     );
     expect(extractJsonBlock('antes {"ok": true} depois')).toBe('{"ok": true}');
     expect(
+      sanitizeModelText("&R&e&s&u&m&o&: &P&e&r&f&i&l &c&o&m&p&e&t&i&t&i&v&o.&"),
+    ).toBe("Resumo: Perfil competitivo.");
+    expect(
       sanitizeList(["  A  ", "", "B", "C", "D", "E"], ["fallback"]),
     ).toEqual(["A", "B", "C", "D"]);
+    expect(
+      sanitizeList(["&1&.& &D&e&t&a&l&h&e &m&e&l&h&o&r.&", ""], ["fallback"]),
+    ).toEqual(["1. Detalhe melhor."]);
     expect(sanitizeList(null, ["fallback"])).toEqual(["fallback"]);
   });
 
@@ -345,6 +352,44 @@ describe("analyzeLinkedInProfile", () => {
     expect(result.foco).toBe(baseAnalysis.foco);
     expect(result.pontosFortes).toEqual(baseAnalysis.pontosFortes);
     expect(result.benchmark).toBe(baseAnalysis.benchmark);
+
+    vi.unstubAllEnvs();
+  });
+
+  it("sanitizes broken ampersand-encoded Groq fields", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+
+    groqCreateMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              nivel: "Pleno",
+              foco: "Frontend",
+              pontosFortes: ["&1&.& &R&e&a&c&t&"],
+              pontosFracos: ["&2&.& &S&e&m &m&e&t&r&i&c&a&s&"],
+              problemas: ["&3&.& &H&e&a&d&l&i&n&e &g&e&n&e&r&i&c&a&"],
+              sugestoes: ["&4&.& &A&d&i&c&i&o&n&e &n&u&m&e&r&o&s&"],
+              benchmark: "&B&o&m &p&o&s&i&c&i&o&n&a&m&e&n&t&o&.&",
+              resumo: "&R&e&s&u&m&o&: &P&e&r&f&i&l &c&o&m&p&e&t&i&t&i&v&o&.",
+            }),
+          },
+        },
+      ],
+    });
+
+    const result = await analyzeLinkedInProfile({
+      name: "Kleiton",
+      headline: "Backend com Node e SQL",
+      experiences: ["Criei APIs para 50 clientes"],
+    });
+
+    expect(result.pontosFortes).toEqual(["1. React"]);
+    expect(result.pontosFracos).toEqual(["2. Sem metricas"]);
+    expect(result.problemas).toEqual(["3. Headline generica"]);
+    expect(result.sugestoes).toEqual(["4. Adicione numeros"]);
+    expect(result.benchmark).toBe("Bom posicionamento.");
+    expect(result.resumo).toBe("Resumo: Perfil competitivo.");
 
     vi.unstubAllEnvs();
   });
