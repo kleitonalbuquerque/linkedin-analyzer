@@ -447,7 +447,7 @@ export function buildGroqPrompt(profile, baseAnalysis) {
     "Use o score e os sinais calculados localmente como referencia, mas responda em linguagem objetiva e acionavel.",
     "Responda SOMENTE em JSON valido.",
     "Formato esperado:",
-    '{"nivel":"Junior|Pleno|Senior","foco":"Frontend|Backend|Dados|Produto|Generalista","pontosFortes":["item"],"pontosFracos":["item"],"problemas":["item"],"sugestoes":["item"],"benchmark":"texto","resumo":"texto"}',
+    '{"nivel":"Junior|Pleno|Senior","foco":"Frontend|Backend|Dados|UX|UI|Cloud|SRE|DBA|Cyber Segurança|Produto|Finanças|Gastronomia|Marketing|Administração|Saúde|Enfermagem|Medicina|Educação|Pesquisa|RH|Recrutamento|Engenharia|Arquitetura|Generalista","pontosFortes":["item"],"pontosFracos":["item"],"problemas":["item"],"sugestoes":["item"],"benchmark":"texto","resumo":"texto"}',
     "Retorne ate 4 itens por lista.",
     `Nome: ${profile.name || "Nao informado"}`,
     `Headline: ${profile.headline || "Nao informado"}`,
