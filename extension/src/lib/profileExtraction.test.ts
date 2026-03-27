@@ -251,6 +251,7 @@ describe("extractLinkedInProfileFromDocument", () => {
     expect(isMetadataHeadline("68 compartilhamentos")).toBe(true);
     expect(isMetadataHeadline("99 shares")).toBe(true);
     expect(isMetadataHeadline("Backend Engineer")).toBe(false);
+    expect(isLikelyExternalHeadline("SRE Pleno (SP16101308)")).toBe(true);
     expect(isLikelyExternalHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
     expect(isLikelyExternalHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
     expect(isLikelyExternalHeadline("Como escalar plataformas: lições práticas para engenharia moderna")).toBe(true);
@@ -285,6 +286,26 @@ describe("extractLinkedInProfileFromDocument", () => {
           <div>
             <h1>Kleiton Albuquerque</h1>
             <div class="text-body-medium">LIVE</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Engineer",
+      experiences: [],
+    });
+  });
+
+  it("ignores job-posting style headlines with reference codes", () => {
+    document.title = "Kleiton Albuquerque - Software Engineer | LinkedIn";
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <h1>Kleiton Albuquerque</h1>
+            <div class="text-body-medium">SRE Pleno (SP16101308)</div>
           </div>
         </section>
       </main>

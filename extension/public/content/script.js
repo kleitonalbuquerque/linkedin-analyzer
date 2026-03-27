@@ -103,6 +103,8 @@ const EDITORIAL_HEADLINE_PREFIXES = [
   "how ",
   "the ",
 ];
+const JOB_REFERENCE_PATTERN =
+  /\(([a-z]{2,}[\d-]{3,}|[a-z]+\d{4,}|[a-z]{1,4}\d{5,})\)$/i;
 
 function stripCountPrefix(value) {
   return value.replaceAll(/^\d+[\d.,k]*\s+/gi, "");
@@ -134,9 +136,14 @@ function hasProfessionalHeadlineSignal(value) {
 
 function isLikelyExternalHeadline(value) {
   const normalized = normalizeHeadlineToken(value);
+  const trimmedValue = normalizeText(value);
 
   if (!normalized || !hasMeaningfulLetters(value)) {
     return false;
+  }
+
+  if (JOB_REFERENCE_PATTERN.test(trimmedValue)) {
+    return true;
   }
 
   if (

@@ -80,6 +80,7 @@ const EXTERNAL_HEADLINE_SOURCE_TERMS = [
   "valor",
 ];
 const EDITORIAL_HEADLINE_PREFIXES = ["a ", "o ", "as ", "os ", "como ", "por que ", "porque ", "why ", "how ", "the "];
+const JOB_REFERENCE_PATTERN = /\(([a-z]{2,}[\d-]{3,}|[a-z]+\d{4,}|[a-z]{1,4}\d{5,})\)$/i;
 
 function stripCountPrefix(value: string) {
   return value.replaceAll(/^\d+[\d.,k]*\s+/gi, "");
@@ -104,9 +105,14 @@ function hasProfessionalHeadlineSignal(value: string) {
 
 export function isLikelyExternalHeadline(value: string) {
   const normalized = normalizeMetadataToken(value);
+  const trimmedValue = normalizeText(value);
 
   if (!normalized || !hasMeaningfulLetters(value)) {
     return false;
+  }
+
+  if (JOB_REFERENCE_PATTERN.test(trimmedValue)) {
+    return true;
   }
 
   if (EXTERNAL_HEADLINE_SOURCE_TERMS.some((term) => normalized.includes(term))) {
