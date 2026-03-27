@@ -5,9 +5,43 @@ export type ExtractedLinkedInProfile = {
 };
 
 const MAX_EXPERIENCE_LENGTH = 280;
+const HEADLINE_METADATA_TERMS = new Set([
+  "comentario",
+  "comentarios",
+  "comment",
+  "comments",
+  "compartilhamento",
+  "compartilhamentos",
+  "share",
+  "shares",
+  "curtida",
+  "curtidas",
+  "like",
+  "likes",
+  "seguidor",
+  "seguidores",
+  "follower",
+  "followers",
+  "conexao",
+  "conexoes",
+  "connection",
+  "connections",
+]);
+const SECONDARY_HEADLINE_METADATA_PATTERN = /seguidores|followers|conexoes|connections|contact info/i;
+
+function stripCountPrefix(value: string) {
+  return value.replaceAll(/^\d+[\d.,k]*\s+/gi, "");
+}
 
 function normalizeText(value?: string | null) {
-  return String(value || "").replace(/\s+/g, " ").trim();
+  return String(value || "").replaceAll(/\s+/g, " ").trim();
+}
+
+function normalizeMetadataToken(value: string) {
+  return stripCountPrefix(normalizeText(value))
+    .normalize("NFD")
+    .replaceAll(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function uniqueTexts(values: string[]) {
@@ -16,6 +50,10 @@ function uniqueTexts(values: string[]) {
 
 function hasMeaningfulLetters(value: string) {
   return /[A-Za-zÀ-ÿ]/.test(value);
+}
+
+export function isMetadataHeadline(value: string) {
+  return HEADLINE_METADATA_TERMS.has(normalizeMetadataToken(value));
 }
 
 function getFirstText(root: ParentNode, selectors: string[]) {
@@ -45,15 +83,17 @@ function cleanHeadline(value: string, name: string) {
     return "";
   }
 
-  const parts = value
-    .split(/\n|\u00b7/)
+  return value
+    .split(/[\n\u00b7]/)
     .map((part) => normalizeText(part))
     .filter(Boolean)
-    .filter((part) => part !== name)
-    .filter((part) => hasMeaningfulLetters(part))
-    .filter((part) => !/seguidores|followers|conexoes|connections|contact info/i.test(part));
-
-  return parts[0] || "";
+    .find(
+      (part) =>
+        part !== name &&
+        hasMeaningfulLetters(part) &&
+        !isMetadataHeadline(part) &&
+        !SECONDARY_HEADLINE_METADATA_PATTERN.test(part),
+    ) || "";
 }
 
 function extractNameFromTitle(root: Document) {
@@ -77,13 +117,15 @@ function extractHeadlineFromTitle(root: Document, name: string) {
   const segments = normalizedTitle
     .split(/\|/)
     .map((segment) => normalizeText(segment))
-    .filter(Boolean)
-    .filter((segment) => segment !== name)
-    .filter((segment) => !/linkedin/i.test(segment));
+    .filter(Boolean);
 
-  const roleSegment = segments[0]?.includes(" - ")
-    ? normalizeText(segments[0].split(" - ").slice(1).join(" - "))
-    : segments[0];
+  const firstRelevantSegment = segments.find(
+    (segment) => segment !== name && !/linkedin/i.test(segment),
+  );
+
+  const roleSegment = firstRelevantSegment?.includes(" - ")
+    ? normalizeText(firstRelevantSegment.split(" - ").slice(1).join(" - "))
+    : firstRelevantSegment;
 
   return roleSegment && hasMeaningfulLetters(roleSegment) ? roleSegment : "";
 }
@@ -163,7 +205,7 @@ export function extractLinkedInProfileFromDocument(root: Document): ExtractedLin
     .map((candidate) => cleanHeadline(candidate, name))
     .find(Boolean) || "";
   const aboutSection = findSection(root, "about", /^(sobre|about)$/i);
-  const experienceSection = findSection(root, "experience", /experi[ee]ncia|experience/i);
+  const experienceSection = findSection(root, "experience", /experi[eê]ncia|experience/i);
   const aboutText = truncateText(extractAboutText(aboutSection), MAX_EXPERIENCE_LENGTH);
   const experiences = uniqueTexts([
     aboutText,

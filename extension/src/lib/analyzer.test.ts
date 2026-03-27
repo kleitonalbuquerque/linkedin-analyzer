@@ -4,8 +4,11 @@ import {
   analyzeActiveProfile,
   buildPdfFileName,
   exportAnalysisPdf,
+  formatAnalysisProvider,
+  getProfileCaptureError,
   getProfileFromActiveTab,
   hasProfileData,
+  isSuspiciousProfileHeadline,
   isLinkedInProfileUrl,
   type AnalysisResult,
   type ChromeApi,
@@ -51,6 +54,24 @@ describe("analyzer helpers", () => {
     expect(hasProfileData({ headline: "Backend Engineer" })).toBe(true);
     expect(hasProfileData({ experiences: ["Projeto"] })).toBe(true);
     expect(hasProfileData({})).toBe(false);
+    expect(isSuspiciousProfileHeadline("1 comentário")).toBe(true);
+    expect(isSuspiciousProfileHeadline("Backend Engineer")).toBe(false);
+    expect(formatAnalysisProvider("local-fallback")).toBe("Analise local");
+    expect(formatAnalysisProvider("groq:openai/gpt-oss-120b")).toContain("IA (Groq");
+    expect(formatAnalysisProvider()).toBe("Nao informado");
+    expect(formatAnalysisProvider("custom-provider")).toBe("custom-provider");
+    expect(
+      getProfileCaptureError(
+        { name: "Kleiton", headline: "1 comentário", experiences: ["Projeto"] },
+        "https://www.linkedin.com/in/teste/details/featured/",
+      ),
+    ).toContain("capturado metadados");
+    expect(
+      getProfileCaptureError(
+        { name: "Kleiton", headline: "Software Engineer", experiences: ["Projeto 1", "Projeto 2"] },
+        "https://www.linkedin.com/in/teste/",
+      ),
+    ).toBeNull();
   });
 
   it("builds a normalized PDF filename with fallback", () => {
@@ -158,6 +179,44 @@ describe("analyzeActiveProfile", () => {
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow("Nao foi possivel capturar os dados do perfil exibido.");
   });
 
+  it("fails when the captured headline looks like page metadata", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([
+          { id: 10, url: "https://www.linkedin.com/in/teste/details/featured/" },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "1 comentário",
+          experiences: ["Resumo do perfil"],
+        }),
+      },
+    });
+
+    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
+      "O LinkedIn parece ter capturado metadados da pagina em vez da headline do perfil.",
+    );
+  });
+
+  it("fails when the LinkedIn details page capture is incomplete", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([
+          { id: 10, url: "https://www.linkedin.com/in/teste/details/featured/" },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "Software Engineer",
+          experiences: ["Resumo do perfil"],
+        }),
+      },
+    });
+
+    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
+      "A captura do perfil ficou incompleta nesta visualizacao do LinkedIn.",
+    );
+  });
+
   it("surfaces backend error messages from the API", async () => {
     const chromeApi = createChromeApi();
     const fetchImpl = vi.fn().mockResolvedValue({
@@ -250,6 +309,11 @@ describe("exportAnalysisPdf", () => {
       FakePdf,
     );
 
+    expect(text).toHaveBeenCalledWith(
+      ["Fonte da analise: Analise local"],
+      40,
+      expect.any(Number),
+    );
     expect(text).toHaveBeenCalledWith("Experiencias analisadas", 40, expect.any(Number));
     expect(text).toHaveBeenCalledWith(
       ["1. Liderou APIs e integracoes para 120 clientes."],

@@ -17,6 +17,7 @@ vi.mock("groq-sdk", () => ({
 import {
   analyzeLinkedInProfile,
   buildBenchmark,
+  buildGroqMessages,
   buildFallbackResponse,
   buildGroqPrompt,
   buildPontosFortes,
@@ -33,6 +34,7 @@ import {
   extractJsonBlock,
   generateGroqAnalysis,
   normalizeProfile,
+  parseGroqAnalysisText,
   pushIfMissing,
   sanitizeList,
   sanitizeModelText,
@@ -40,6 +42,7 @@ import {
   scoreHeadline,
   scoreKeywords,
   scoreMeasuredResults,
+  shouldRetryGroqWithoutJsonMode,
 } from "./aiService.js";
 
 describe("aiService helpers", () => {
@@ -192,6 +195,12 @@ describe("aiService helpers", () => {
     expect(
       sanitizeList(["&1&.& &D&e&t&a&l&h&e &m&e&l&h&o&r.&", ""], ["fallback"]),
     ).toEqual(["1. Detalhe melhor."]);
+    expect(
+      sanitizeList(
+        ["3 . B o a d e n s i d a d e d e p a l a v r a s c h a v e"],
+        ["fallback"],
+      ),
+    ).toEqual(["fallback"]);
     expect(sanitizeList(null, ["fallback"])).toEqual(["fallback"]);
   });
 
@@ -228,6 +237,106 @@ describe("aiService helpers", () => {
     expect(prompt).toContain("Score local");
     expect(prompt).toContain("Resumo local");
     expect(prompt).toContain("Nome: Kleiton");
+    expect(prompt).toContain("Nao use frases vagas");
+    expect(prompt).toContain("Tambem evite cliches");
+    expect(prompt).toContain(
+      "Cada item da lista deve ter no maximo 140 caracteres",
+    );
+    expect(prompt).toContain("clareza de posicionamento");
+    expect(prompt).toContain("Benchmark ruim");
+    expect(prompt).toContain("Resumo ruim");
+    expect(prompt).toContain("Se o perfil tiver pouco sinal");
+  });
+
+  it("builds relaxed Groq messages for retry mode", () => {
+    const baseAnalysis = buildRuleBasedAnalysis({
+      name: "Kleiton",
+      headline: "Backend com Node e SQL",
+      experiences: ["Criei APIs para 50 clientes"],
+    });
+
+    const messages = buildGroqMessages(
+      {
+        name: "Kleiton",
+        headline: "Backend com Node e SQL",
+        experiences: ["Criei APIs"],
+      },
+      baseAnalysis,
+      true,
+    );
+
+    expect(messages).toHaveLength(2);
+    expect(messages[0].role).toBe("system");
+    expect(messages[1].content).toContain(
+      "Retorne apenas um objeto JSON bruto",
+    );
+  });
+
+  it("detects Groq JSON validation errors for retry", () => {
+    expect(
+      shouldRetryGroqWithoutJsonMode({
+        error: {
+          error: {
+            code: "json_validate_failed",
+            message: "Failed to validate JSON. Please adjust your prompt.",
+          },
+        },
+      }),
+    ).toBe(true);
+
+    expect(shouldRetryGroqWithoutJsonMode(new Error("boom"))).toBe(false);
+  });
+
+  it("parses Groq analysis text into sanitized output", () => {
+    const baseAnalysis = buildRuleBasedAnalysis({
+      name: "Kleiton",
+      headline: "Backend com Node e SQL",
+      experiences: ["Criei APIs para 50 clientes"],
+    });
+
+    const result = parseGroqAnalysisText(
+      JSON.stringify({
+        nivel: "Senior",
+        foco: "Frontend",
+        pontosFortes: ["React e Next.js bem posicionados"],
+        pontosFracos: ["Faltam metricas claras"],
+        problemas: ["Headline pouco especifica"],
+        sugestoes: ["Explique impacto com numeros"],
+        benchmark: "Bom alinhamento para vagas full stack.",
+        resumo:
+          "Perfil com base tecnica boa, mas ainda pouco orientado a impacto.",
+      }),
+      baseAnalysis,
+    );
+
+    expect(result.nivel).toBe("Senior");
+    expect(result.foco).toBe("Frontend");
+    expect(result.provider).toContain("groq:");
+  });
+
+  it("keeps the local focus when Groq returns Generalista for a profile with a clearer local focus", () => {
+    const baseAnalysis = buildRuleBasedAnalysis({
+      name: "Kleiton",
+      headline: "React, Node.js e Java em produtos digitais",
+      experiences: ["Criei APIs em Node.js para 50 clientes"],
+    });
+
+    const result = parseGroqAnalysisText(
+      JSON.stringify({
+        nivel: "Pleno",
+        foco: "Generalista",
+        pontosFortes: ["React e Next.js"],
+        pontosFracos: ["Faltam metricas"],
+        problemas: ["Headline pouco objetiva"],
+        sugestoes: ["Mostre numeros"],
+        benchmark: "Perfil com boa base tecnica.",
+        resumo: "Perfil tecnico com oportunidades de melhoria.",
+      }),
+      baseAnalysis,
+    );
+
+    expect(baseAnalysis.foco).not.toBe("Generalista");
+    expect(result.foco).toBe(baseAnalysis.foco);
   });
 
   it("returns null client when GROQ key is missing", () => {
@@ -314,6 +423,57 @@ describe("analyzeLinkedInProfile", () => {
     expect(result.provider).toContain("groq:");
     expect(result.foco).toBe("Dados");
     expect(result.nivel).toBe("Senior");
+
+    vi.unstubAllEnvs();
+  });
+
+  it("retries without response_format when Groq JSON mode fails", async () => {
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+
+    groqCreateMock
+      .mockRejectedValueOnce({
+        error: {
+          error: {
+            code: "json_validate_failed",
+            message: "Failed to validate JSON. Please adjust your prompt.",
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                nivel: "Senior",
+                foco: "Frontend",
+                pontosFortes: ["React e Next.js com boa clareza"],
+                pontosFracos: ["Faltam metricas de impacto"],
+                problemas: ["Headline ainda pouco especifica"],
+                sugestoes: ["Mostre escopo e numeros por projeto"],
+                benchmark:
+                  "Perfil bem alinhado para React e Node, mas perde forca por falta de resultados mensuraveis.",
+                resumo:
+                  "O perfil comunica bem stack moderna, mas precisa reforcar senioridade com impacto concreto.",
+              }),
+            },
+          },
+        ],
+      });
+
+    const result = await analyzeLinkedInProfile({
+      name: "Kleiton",
+      headline: "Backend com Node e SQL",
+      experiences: ["Criei APIs para 50 clientes"],
+    });
+
+    expect(groqCreateMock).toHaveBeenCalledTimes(2);
+    expect(groqCreateMock.mock.calls[0][0].response_format).toEqual({
+      type: "json_object",
+    });
+    expect(groqCreateMock.mock.calls[1][0].response_format).toBeUndefined();
+    expect(result.provider).toContain("groq:");
+    expect(result.nivel).toBe("Senior");
+    expect(result.foco).toBe("Frontend");
 
     vi.unstubAllEnvs();
   });

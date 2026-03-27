@@ -2,14 +2,18 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { analyzeActiveProfile, exportAnalysisPdf } = vi.hoisted(() => ({
+const { analyzeActiveProfile, exportAnalysisPdf, formatAnalysisProvider } = vi.hoisted(() => ({
   analyzeActiveProfile: vi.fn(),
   exportAnalysisPdf: vi.fn(),
+  formatAnalysisProvider: vi.fn((provider: string) =>
+    provider === "local-fallback" ? "Analise local" : provider,
+  ),
 }));
 
 vi.mock("./lib/analyzer", () => ({
   analyzeActiveProfile,
   exportAnalysisPdf,
+  formatAnalysisProvider,
 }));
 
 import App from "./App";
@@ -18,6 +22,7 @@ describe("App", () => {
   beforeEach(() => {
     analyzeActiveProfile.mockReset();
     exportAnalysisPdf.mockReset();
+    formatAnalysisProvider.mockClear();
   });
 
   it("renders the analysis result and exports the PDF", async () => {
@@ -50,6 +55,7 @@ describe("App", () => {
     expect(screen.getByText("Bom posicionamento para o mercado.")).toBeInTheDocument();
     expect(screen.getByText("Boa densidade de palavras-chave")).toBeInTheDocument();
     expect(screen.getByText("Criei APIs em Node.js")).toBeInTheDocument();
+    expect(screen.getByText("Analise local")).toBeInTheDocument();
 
     const exportButton = screen.getByRole("button", { name: "Exportar PDF" });
     expect(exportButton).toBeEnabled();

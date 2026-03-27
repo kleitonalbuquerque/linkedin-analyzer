@@ -435,9 +435,22 @@ export function sanitizeModelText(value, fallback = "") {
     brokenAmpersandMatches.length >= 4 &&
     brokenAmpersandMatches.length / text.length > 0.08;
 
+  const spacedTokens = text
+    .split(/\s+/)
+    .map((token) => token.replaceAll(/[.,:;!?()%/-]/g, ""))
+    .filter(Boolean);
+  const singleCharTokens = spacedTokens.filter((token) => token.length === 1);
+  const hasSpacedCharacterCorruption =
+    spacedTokens.length >= 8 &&
+    singleCharTokens.length / spacedTokens.length > 0.6;
+
+  if (hasSpacedCharacterCorruption) {
+    return fallback;
+  }
+
   const repaired = hasBrokenAmpersandEncoding ? text.replaceAll("&", "") : text;
 
-  return repaired.replace(/\s+/g, " ").trim() || fallback;
+  return repaired.replaceAll(/\s+/g, " ").trim() || fallback;
 }
 
 export function sanitizeList(values, fallback) {
@@ -462,11 +475,23 @@ export function buildGroqPrompt(profile, baseAnalysis) {
   return [
     "Voce e um especialista em LinkedIn, recrutamento e posicionamento profissional.",
     "Analise o perfil abaixo em portugues do Brasil.",
-    "Use o score e os sinais calculados localmente como referencia, mas responda em linguagem objetiva e acionavel.",
+    "Use o score e os sinais calculados localmente apenas como referencia, sem repetir mecanicamente a analise local.",
+    "Produza uma leitura especifica, baseada nas tecnologias, entregas, contexto de negocio e sinais explicitos do perfil.",
+    "Nao use frases vagas como 'bom perfil', 'perfil competitivo' ou 'bom posicionamento' sem explicar o motivo com base em evidencias do texto.",
+    "Tambem evite cliches como 'experiencia solida', 'profissional completo', 'perfil forte' ou 'bom potencial' sem ancoragem concreta.",
+    "Priorize leitura de recrutador: clareza de posicionamento, senioridade percebida, densidade de palavras-chave, impacto mensuravel e coerencia entre headline e experiencias.",
+    "Quando faltarem evidencias, aponte exatamente o que esta faltando, por exemplo: metricas, escopo, senioridade, ownership, lideranca, arquitetura ou resultados.",
+    "Se o perfil tiver pouco sinal, diga isso claramente e torne as sugestoes mais especificas sobre o que falta escrever no LinkedIn.",
+    "Nas listas, escreva itens concretos e especificos. Cite stacks, dominios, resultados, sinais de senioridade ou lacunas reais do perfil. Evite itens genericos demais.",
+    "No resumo, sintetize como o perfil seria percebido por recrutadores, qual stack ou direcao profissional aparece com mais clareza e quais ajustes gerariam mais impacto.",
+    "No benchmark, compare o perfil com o mercado em 1 ou 2 frases curtas, sempre explicando o motivo. Nunca devolva so um elogio generico.",
+    "Benchmark ruim: 'Bom posicionamento para o mercado.'. Benchmark bom: 'Perfil bem alinhado para vagas de React e Node, mas ainda perde forca por falta de metricas e escopo tecnico explicito.'.",
+    "Resumo ruim: 'Perfil competitivo e com boa experiencia.'. Resumo bom: 'O perfil comunica bem front-end com React e Next.js, mas pode reforcar senioridade com resultados, arquitetura e impacto mensuravel.'.",
     "Responda SOMENTE em JSON valido.",
     "Formato esperado:",
     '{"nivel":"Junior|Pleno|Senior","foco":"Frontend|Backend|Dados|UX|UI|Cloud|SRE|DBA|Cyber Segurança|Produto|Finanças|Gastronomia|Marketing|Administração|Saúde|Enfermagem|Medicina|Educação|Pesquisa|RH|Recrutamento|Engenharia|Arquitetura|Generalista","pontosFortes":["item"],"pontosFracos":["item"],"problemas":["item"],"sugestoes":["item"],"benchmark":"texto","resumo":"texto"}',
     "Retorne ate 4 itens por lista.",
+    "Cada item da lista deve ter no maximo 140 caracteres e ser util para o usuario ajustar o perfil no LinkedIn.",
     `Nome: ${profile.name || "Nao informado"}`,
     `Headline: ${profile.headline || "Nao informado"}`,
     `Experiencias: ${profile.experiences.join(" | ") || "Nao informado"}`,
@@ -483,41 +508,91 @@ export function buildGroqPrompt(profile, baseAnalysis) {
   ].join("\n");
 }
 
-export async function generateGroqAnalysis(profile, baseAnalysis) {
-  const groq = createGroqClient();
+export function shouldRetryGroqWithoutJsonMode(error) {
+  const code =
+    error?.error?.error?.code || error?.error?.code || error?.code || "";
+  const message =
+    error?.error?.error?.message ||
+    error?.error?.message ||
+    error?.message ||
+    "";
 
-  if (!groq) {
-    return null;
+  return (
+    code === "json_validate_failed" ||
+    message.toLowerCase().includes("failed to validate json")
+  );
+}
+
+export function buildGroqMessages(
+  profile,
+  baseAnalysis,
+  relaxedJsonMode = false,
+) {
+  const prompt = buildGroqPrompt(profile, baseAnalysis);
+
+  if (!relaxedJsonMode) {
+    return [{ role: "user", content: prompt }];
   }
 
-  const payload = await groq.chat.completions.create({
-    model: DEFAULT_MODEL,
-    temperature: 0.5,
-    max_completion_tokens: 900,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "user",
-        content: buildGroqPrompt(profile, baseAnalysis),
-      },
-    ],
-  });
+  return [
+    {
+      role: "system",
+      content:
+        "Voce responde somente com JSON puro, sem markdown, sem comentarios e sem texto fora do objeto.",
+    },
+    {
+      role: "user",
+      content: `${prompt}\nRetorne apenas um objeto JSON bruto, iniciando em { e terminando em } .`,
+    },
+  ];
+}
 
-  const text = payload.choices?.[0]?.message?.content;
-
+export function parseGroqAnalysisText(text, baseAnalysis) {
   if (!text) {
     throw new Error("Groq returned an empty response");
   }
 
   const parsed = JSON.parse(extractJsonBlock(text));
 
+  const allowedFocus = [
+    "Frontend",
+    "Backend",
+    "Dados",
+    "UX",
+    "UI",
+    "Cloud",
+    "SRE",
+    "DBA",
+    "Cyber Segurança",
+    "Produto",
+    "Finanças",
+    "Gastronomia",
+    "Marketing",
+    "Administração",
+    "Saúde",
+    "Enfermagem",
+    "Medicina",
+    "Educação",
+    "Pesquisa",
+    "RH",
+    "Recrutamento",
+    "Engenharia",
+    "Arquitetura",
+    "Generalista",
+  ];
+  const parsedFocus = sanitizeModelText(parsed.foco);
+  const focusIsAllowed = allowedFocus.includes(parsedFocus);
+  const shouldKeepLocalFocus =
+    parsedFocus === "Generalista" && baseAnalysis.foco !== "Generalista";
+
   return {
     nivel: ["Junior", "Pleno", "Senior"].includes(parsed.nivel)
       ? parsed.nivel
       : baseAnalysis.nivel,
-    foco: sanitizeModelText(parsed.foco)
-      ? sanitizeModelText(parsed.foco)
-      : baseAnalysis.foco,
+    foco:
+      parsedFocus && focusIsAllowed && !shouldKeepLocalFocus
+        ? parsedFocus
+        : baseAnalysis.foco,
     pontosFortes: sanitizeList(parsed.pontosFortes, baseAnalysis.pontosFortes),
     pontosFracos: sanitizeList(parsed.pontosFracos, baseAnalysis.pontosFracos),
     problemas: sanitizeList(parsed.problemas, baseAnalysis.problemas),
@@ -530,6 +605,45 @@ export async function generateGroqAnalysis(profile, baseAnalysis) {
       : baseAnalysis.resumo,
     provider: `groq:${DEFAULT_MODEL}`,
   };
+}
+
+export async function generateGroqAnalysis(profile, baseAnalysis) {
+  const groq = createGroqClient();
+
+  if (!groq) {
+    return null;
+  }
+
+  try {
+    const payload = await groq.chat.completions.create({
+      model: DEFAULT_MODEL,
+      temperature: 0.2,
+      max_completion_tokens: 900,
+      response_format: { type: "json_object" },
+      messages: buildGroqMessages(profile, baseAnalysis),
+    });
+
+    return parseGroqAnalysisText(
+      payload.choices?.[0]?.message?.content,
+      baseAnalysis,
+    );
+  } catch (error) {
+    if (!shouldRetryGroqWithoutJsonMode(error)) {
+      throw error;
+    }
+
+    const payload = await groq.chat.completions.create({
+      model: DEFAULT_MODEL,
+      temperature: 0.2,
+      max_completion_tokens: 900,
+      messages: buildGroqMessages(profile, baseAnalysis, true),
+    });
+
+    return parseGroqAnalysisText(
+      payload.choices?.[0]?.message?.content,
+      baseAnalysis,
+    );
+  }
 }
 
 export function buildFallbackResponse(baseAnalysis) {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { extractLinkedInProfileFromDocument } from "./profileExtraction";
+import { extractLinkedInProfileFromDocument, isMetadataHeadline } from "./profileExtraction";
 
 describe("extractLinkedInProfileFromDocument", () => {
   beforeEach(() => {
@@ -220,6 +220,34 @@ describe("extractLinkedInProfileFromDocument", () => {
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "Kleiton Albuquerque",
       headline: "",
+      experiences: [],
+    });
+  });
+
+  it("treats comment counters as invalid headline metadata", () => {
+    expect(isMetadataHeadline("1 comentário")).toBe(true);
+    expect(isMetadataHeadline("42 comments")).toBe(true);
+    expect(isMetadataHeadline("68 compartilhamentos")).toBe(true);
+    expect(isMetadataHeadline("99 shares")).toBe(true);
+    expect(isMetadataHeadline("Backend Engineer")).toBe(false);
+  });
+
+  it("ignores comment metadata and falls back to the title headline", () => {
+    document.title = "Kleiton Albuquerque - Software Engineer | LinkedIn";
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <h1>Kleiton Albuquerque</h1>
+            <div class="text-body-medium">1 comentário</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Engineer",
       experiences: [],
     });
   });

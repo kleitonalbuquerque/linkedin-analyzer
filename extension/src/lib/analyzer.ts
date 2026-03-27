@@ -61,6 +61,29 @@ type PdfConstructor = new (options: { unit: string; format: string }) => PdfDocu
 
 const PDF_MAX_SECTION_ITEMS = 4;
 const PDF_MAX_TEXT_LENGTH = 260;
+const INVALID_CAPTURE_HEADLINE_TERMS = new Set([
+  "comentario",
+  "comentarios",
+  "comment",
+  "comments",
+  "compartilhamento",
+  "compartilhamentos",
+  "share",
+  "shares",
+  "curtida",
+  "curtidas",
+  "like",
+  "likes",
+]);
+
+function normalizeCaptureHeadline(value?: string) {
+  return String(value || "")
+    .trim()
+    .replaceAll(/^\d+[\d.,k]*\s+/gi, "")
+    .normalize("NFD")
+    .replaceAll(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 
 export function isLinkedInProfileUrl(url?: string) {
   return typeof url === "string" && url.includes("linkedin.com/in/");
@@ -68,6 +91,41 @@ export function isLinkedInProfileUrl(url?: string) {
 
 export function hasProfileData(profile: LinkedInProfile) {
   return Boolean(profile.headline) || Boolean(profile.experiences && profile.experiences.length > 0);
+}
+
+export function isSuspiciousProfileHeadline(headline?: string) {
+  return INVALID_CAPTURE_HEADLINE_TERMS.has(normalizeCaptureHeadline(headline));
+}
+
+export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string) {
+  if (isSuspiciousProfileHeadline(profile.headline)) {
+    return "O LinkedIn parece ter capturado metadados da pagina em vez da headline do perfil. Feche modais e analise a pagina principal do perfil.";
+  }
+
+  const experiencesCount = profile.experiences?.length || 0;
+  const isDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/");
+
+  if (isDetailsPage && experiencesCount < 2) {
+    return "A captura do perfil ficou incompleta nesta visualizacao do LinkedIn. Volte para a pagina principal do perfil antes de analisar.";
+  }
+
+  return null;
+}
+
+export function formatAnalysisProvider(provider?: string) {
+  if (!provider) {
+    return "Nao informado";
+  }
+
+  if (provider === "local-fallback") {
+    return "Analise local";
+  }
+
+  if (provider.startsWith("groq:")) {
+    return `IA (${provider.replace("groq:", "Groq ")})`;
+  }
+
+  return provider;
 }
 
 export async function getProfileFromActiveTab(tabId: number, chromeApi: ChromeApi = chrome) {
@@ -123,6 +181,13 @@ export async function analyzeActiveProfile({
   if (!hasProfileData(profile)) {
     console.warn("[LinkedIn Analyzer] Profile data was empty", profile);
     throw new Error("Nao foi possivel capturar os dados do perfil exibido.");
+  }
+
+  const profileCaptureError = getProfileCaptureError(profile, tab.url);
+
+  if (profileCaptureError) {
+    console.warn("[LinkedIn Analyzer] Suspicious profile capture", { profile, tabUrl: tab.url });
+    throw new Error(profileCaptureError);
   }
 
   console.info("[LinkedIn Analyzer] Profile captured", profile);
@@ -213,6 +278,7 @@ export function exportAnalysisPdf(
   writeBlock(`Nivel: ${analysis.nivel}`);
   writeBlock(`Score de mercado: ${analysis.score}/100`);
   writeBlock(`Foco principal: ${analysis.foco}`);
+  writeBlock(`Fonte da analise: ${formatAnalysisProvider(analysis.provider)}`);
   writeBlock(`Benchmark: ${analysis.benchmark}`);
   writeBlock(`Resumo: ${analysis.resumo}`);
 
