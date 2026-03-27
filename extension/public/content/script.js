@@ -10,6 +10,10 @@ function uniqueTexts(values) {
   ];
 }
 
+function hasMeaningfulLetters(value) {
+  return /[A-Za-zÀ-ÿ]/.test(value);
+}
+
 const MAX_EXPERIENCE_LENGTH = 280;
 
 function getFirstText(selectors, root = document) {
@@ -49,12 +53,48 @@ function cleanHeadline(value, name) {
     .map((part) => normalizeText(part))
     .filter(Boolean)
     .filter((part) => part !== name)
+    .filter((part) => hasMeaningfulLetters(part))
     .filter(
       (part) =>
         !/seguidores|followers|conexoes|connections|contact info/i.test(part),
     );
 
   return parts[0] || "";
+}
+
+function extractNameFromTitle() {
+  const normalizedTitle = normalizeText(document.title);
+
+  if (!normalizedTitle) {
+    return "";
+  }
+
+  const [firstSegment] = normalizedTitle
+    .split(/\s+-\s+|\|/)
+    .map((segment) => normalizeText(segment));
+
+  return firstSegment && hasMeaningfulLetters(firstSegment) ? firstSegment : "";
+}
+
+function extractHeadlineFromTitle(name) {
+  const normalizedTitle = normalizeText(document.title);
+
+  if (!normalizedTitle) {
+    return "";
+  }
+
+  const segments = normalizedTitle
+    .split(/\|/)
+    .map((segment) => normalizeText(segment))
+    .filter(Boolean)
+    .filter((segment) => segment !== name)
+    .filter((segment) => !/linkedin/i.test(segment));
+
+  const roleSegment = segments[0]?.includes(" - ")
+    ? normalizeText(segments[0].split(" - ").slice(1).join(" - "))
+    : segments[0];
+
+  return roleSegment && hasMeaningfulLetters(roleSegment) ? roleSegment : "";
 }
 
 function truncateText(value, maxLength) {
@@ -130,7 +170,8 @@ function getProfileData() {
   const topCard = getTopCard();
   const name =
     getFirstText(["h1", ".pv-text-details__left-panel h1"], topCard) ||
-    getFirstText(["main h1", "h1"]);
+    getFirstText(["main h1", "h1"]) ||
+    extractNameFromTitle();
   const headlineCandidates = [
     getFirstText(
       [
@@ -148,12 +189,12 @@ function getProfileData() {
     )
       .map((element) => normalizeText(element.textContent))
       .filter(Boolean),
+    extractHeadlineFromTitle(name),
   ];
-  const headline = cleanHeadline(
-    headlineCandidates.find((candidate) => candidate && candidate !== name) ||
-      "",
-    name,
-  );
+  const headline =
+    headlineCandidates
+      .map((candidate) => cleanHeadline(candidate, name))
+      .find(Boolean) || "";
   const aboutSection = findSection("about", /^(sobre|about)$/i);
   const experienceSection = findSection(
     "experience",

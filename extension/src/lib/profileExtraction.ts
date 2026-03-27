@@ -14,6 +14,10 @@ function uniqueTexts(values: string[]) {
   return [...new Set(values.map((value) => normalizeText(value)).filter(Boolean))];
 }
 
+function hasMeaningfulLetters(value: string) {
+  return /[A-Za-zÀ-ÿ]/.test(value);
+}
+
 function getFirstText(root: ParentNode, selectors: string[]) {
   for (const selector of selectors) {
     const text = normalizeText(root.querySelector(selector)?.textContent);
@@ -46,9 +50,42 @@ function cleanHeadline(value: string, name: string) {
     .map((part) => normalizeText(part))
     .filter(Boolean)
     .filter((part) => part !== name)
+    .filter((part) => hasMeaningfulLetters(part))
     .filter((part) => !/seguidores|followers|conexoes|connections|contact info/i.test(part));
 
   return parts[0] || "";
+}
+
+function extractNameFromTitle(root: Document) {
+  const normalizedTitle = normalizeText(root.title);
+
+  if (!normalizedTitle) {
+    return "";
+  }
+
+  const [firstSegment] = normalizedTitle.split(/\s+-\s+|\|/).map((segment) => normalizeText(segment));
+  return firstSegment && hasMeaningfulLetters(firstSegment) ? firstSegment : "";
+}
+
+function extractHeadlineFromTitle(root: Document, name: string) {
+  const normalizedTitle = normalizeText(root.title);
+
+  if (!normalizedTitle) {
+    return "";
+  }
+
+  const segments = normalizedTitle
+    .split(/\|/)
+    .map((segment) => normalizeText(segment))
+    .filter(Boolean)
+    .filter((segment) => segment !== name)
+    .filter((segment) => !/linkedin/i.test(segment));
+
+  const roleSegment = segments[0]?.includes(" - ")
+    ? normalizeText(segments[0].split(" - ").slice(1).join(" - "))
+    : segments[0];
+
+  return roleSegment && hasMeaningfulLetters(roleSegment) ? roleSegment : "";
 }
 
 function truncateText(value: string, maxLength: number) {
@@ -109,7 +146,7 @@ function extractExperienceTexts(section: Element | null) {
 
 export function extractLinkedInProfileFromDocument(root: Document): ExtractedLinkedInProfile {
   const topCard = getTopCard(root);
-  const name = getFirstText(topCard, ["h1", ".pv-text-details__left-panel h1"]) || getFirstText(root, ["main h1", "h1"]);
+  const name = getFirstText(topCard, ["h1", ".pv-text-details__left-panel h1"]) || getFirstText(root, ["main h1", "h1"]) || extractNameFromTitle(root);
   const headlineCandidates = [
     getFirstText(topCard, [
       ".text-body-medium.break-words",
@@ -120,11 +157,11 @@ export function extractLinkedInProfileFromDocument(root: Document): ExtractedLin
     ...Array.from(topCard.querySelectorAll("span[aria-hidden='true'], .text-body-medium, .break-words"))
       .map((element) => normalizeText(element.textContent))
       .filter(Boolean),
+    extractHeadlineFromTitle(root, name),
   ];
-  const headline = cleanHeadline(
-    headlineCandidates.find((candidate) => candidate && candidate !== name) || "",
-    name,
-  );
+  const headline = headlineCandidates
+    .map((candidate) => cleanHeadline(candidate, name))
+    .find(Boolean) || "";
   const aboutSection = findSection(root, "about", /^(sobre|about)$/i);
   const experienceSection = findSection(root, "experience", /experi[ee]ncia|experience/i);
   const aboutText = truncateText(extractAboutText(aboutSection), MAX_EXPERIENCE_LENGTH);

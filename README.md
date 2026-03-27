@@ -75,9 +75,11 @@ Para empacotar a versao pronta para publicacao na Chrome Web Store pelo terminal
 2. execute `npm run build:store`
 3. execute `powershell -Command "Compress-Archive -Path '.\\dist\\*' -DestinationPath '.\\linkedin-analyzer-extension.zip' -Force"`
 
-O arquivo final sera gerado em `extension/linkedin-analyzer-extension.zip`.
+O arquivo final sera gerado em `extension/linkedin-analyzer-extension.zip` e sempre sera sobrescrito localmente pelo comando acima.
 
 Importante: o comando compacta o conteudo de `dist/` na raiz do zip. Isso e necessario para que `manifest.json`, `assets/`, `content/` e `icons/` fiquem no nivel correto para upload. Nao compacte a pasta `dist/` inteira como diretório de primeiro nivel.
+
+Esse zip e apenas um artefato local de release e nao deve ser versionado no repositório.
 
 Um exemplo de configuracao pode ser criado a partir de `backend/.env.example`.
 
