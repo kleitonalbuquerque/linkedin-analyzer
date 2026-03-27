@@ -67,6 +67,18 @@ Com isso, o fluxo recomendado passa a ser:
 - `npm run build:dev` em `extension/` para gerar um pacote de desenvolvimento
 - `npm run build:store` em `extension/` para gerar o pacote pronto para Chrome Web Store
 
+### Gerar o zip da extensao por linha de comando
+
+Para empacotar a versao pronta para publicacao na Chrome Web Store pelo terminal no Windows:
+
+1. execute `cd extension`
+2. execute `npm run build:store`
+3. execute `powershell -Command "Compress-Archive -Path '.\\dist\\*' -DestinationPath '.\\linkedin-analyzer-extension.zip' -Force"`
+
+O arquivo final sera gerado em `extension/linkedin-analyzer-extension.zip`.
+
+Importante: o comando compacta o conteudo de `dist/` na raiz do zip. Isso e necessario para que `manifest.json`, `assets/`, `content/` e `icons/` fiquem no nivel correto para upload. Nao compacte a pasta `dist/` inteira como diretório de primeiro nivel.
+
 Um exemplo de configuracao pode ser criado a partir de `backend/.env.example`.
 
 ## PDF de analise

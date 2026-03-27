@@ -56,3 +56,14 @@ O comando `npm run assets:store` gera automaticamente as pecas de publicacao em 
 - `promo-marquee-1400x560.png`
 
 O script tambem salva a versao SVG de cada arte para facilitar ajustes posteriores.
+
+## Empacotar o build para upload
+
+Para gerar o zip de publicacao por linha de comando no Windows:
+
+1. execute `npm run build:store`
+2. execute `powershell -Command "Compress-Archive -Path '.\\dist\\*' -DestinationPath '.\\linkedin-analyzer-extension.zip' -Force"`
+
+O arquivo final sera criado em `extension/linkedin-analyzer-extension.zip`.
+
+Esse comando compacta os arquivos dentro de `dist/`, nao a pasta `dist/` em si. Isso garante que `manifest.json` fique na raiz do zip, como esperado pela Chrome Web Store.
