@@ -62,6 +62,7 @@ type PdfConstructor = new (options: { unit: string; format: string }) => PdfDocu
 const PDF_MAX_SECTION_ITEMS = 4;
 const PDF_MAX_TEXT_LENGTH = 260;
 const INVALID_CAPTURE_HEADLINE_TERMS = new Set([
+  "live",
   "comentario",
   "comentarios",
   "comment",

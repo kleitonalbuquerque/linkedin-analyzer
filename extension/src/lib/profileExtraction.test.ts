@@ -245,6 +245,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
   it("treats comment counters as invalid headline metadata", () => {
     expect(isLikelyExternalHeadline("")).toBe(false);
+    expect(isMetadataHeadline("LIVE")).toBe(true);
     expect(isMetadataHeadline("1 comentário")).toBe(true);
     expect(isMetadataHeadline("42 comments")).toBe(true);
     expect(isMetadataHeadline("68 compartilhamentos")).toBe(true);
@@ -264,6 +265,26 @@ describe("extractLinkedInProfileFromDocument", () => {
           <div>
             <h1>Kleiton Albuquerque</h1>
             <div class="text-body-medium">1 comentário</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Engineer",
+      experiences: [],
+    });
+  });
+
+  it("ignores the LinkedIn LIVE badge and falls back to the title headline", () => {
+    document.title = "Kleiton Albuquerque - Software Engineer | LinkedIn";
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <h1>Kleiton Albuquerque</h1>
+            <div class="text-body-medium">LIVE</div>
           </div>
         </section>
       </main>

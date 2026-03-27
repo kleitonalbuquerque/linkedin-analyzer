@@ -6,6 +6,7 @@ export type ExtractedLinkedInProfile = {
 
 const MAX_EXPERIENCE_LENGTH = 280;
 const HEADLINE_METADATA_TERMS = new Set([
+  "live",
   "comentario",
   "comentarios",
   "comment",
