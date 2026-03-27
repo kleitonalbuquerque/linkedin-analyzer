@@ -53,14 +53,14 @@ describe("aiService helpers", () => {
   it("normalizes profile fields", () => {
     expect(
       normalizeProfile({
-        name: "  Kleiton  ",
-        headline: "  Backend Engineer  ",
-        experiences: ["  Liderou API  ", "", 123],
+        name: "  Kleiton Na\u0303o  ",
+        headline: "  Backend Engineer e integraça\u0303o  ",
+        experiences: ["  Liderou API com aça\u0303o  ", "", 123],
       }),
     ).toEqual({
-      name: "Kleiton",
-      headline: "Backend Engineer",
-      experiences: ["Liderou API", "123"],
+      name: "Kleiton Não",
+      headline: "Backend Engineer e integração",
+      experiences: ["Liderou API com ação", "123"],
     });
   });
 
@@ -189,6 +189,9 @@ describe("aiService helpers", () => {
     expect(
       sanitizeModelText("&R&e&s&u&m&o&: &P&e&r&f&i&l &c&o&m&p&e&t&i&t&i&v&o.&"),
     ).toBe("Resumo: Perfil competitivo.");
+    expect(sanitizeModelText("Na\u0303o e integraça\u0303o")).toBe(
+      "Não e integração",
+    );
     expect(
       sanitizeList(["  A  ", "", "B", "C", "D", "E"], ["fallback"]),
     ).toEqual(["A", "B", "C", "D"]);

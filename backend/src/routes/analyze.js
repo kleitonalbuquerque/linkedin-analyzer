@@ -7,7 +7,7 @@ const MAX_EXPERIENCES = 10;
 
 function normalizeString(value) {
   return typeof value === "string"
-    ? value.trim().slice(0, MAX_TEXT_LENGTH)
+    ? value.normalize("NFC").trim().slice(0, MAX_TEXT_LENGTH)
     : "";
 }
 

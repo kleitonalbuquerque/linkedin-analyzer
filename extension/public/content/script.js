@@ -1,5 +1,6 @@
 function normalizeText(value) {
   return String(value || "")
+    .normalize("NFC")
     .replaceAll(/\s+/g, " ")
     .trim();
 }

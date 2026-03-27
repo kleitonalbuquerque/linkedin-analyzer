@@ -72,13 +72,17 @@ const LEADERSHIP_KEYWORDS = [
 export function normalizeProfile(data = {}) {
   const experiences = Array.isArray(data.experiences)
     ? data.experiences
-        .map((experience) => String(experience).trim())
+        .map((experience) => String(experience).normalize("NFC").trim())
         .filter(Boolean)
     : [];
 
   return {
-    name: typeof data.name === "string" ? data.name.trim() : "",
-    headline: typeof data.headline === "string" ? data.headline.trim() : "",
+    name:
+      typeof data.name === "string" ? data.name.normalize("NFC").trim() : "",
+    headline:
+      typeof data.headline === "string"
+        ? data.headline.normalize("NFC").trim()
+        : "",
     experiences,
   };
 }
@@ -423,7 +427,7 @@ export function extractJsonBlock(text) {
 }
 
 export function sanitizeModelText(value, fallback = "") {
-  const text = typeof value === "string" ? value.trim() : "";
+  const text = typeof value === "string" ? value.normalize("NFC").trim() : "";
 
   if (!text) {
     return fallback;
@@ -450,7 +454,7 @@ export function sanitizeModelText(value, fallback = "") {
 
   const repaired = hasBrokenAmpersandEncoding ? text.replaceAll("&", "") : text;
 
-  return repaired.replaceAll(/\s+/g, " ").trim() || fallback;
+  return repaired.normalize("NFC").replaceAll(/\s+/g, " ").trim() || fallback;
 }
 
 export function sanitizeList(values, fallback) {

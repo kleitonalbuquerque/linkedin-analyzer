@@ -18,6 +18,7 @@ describe("analyze route helpers", () => {
 
     expect(normalizeString(value)).toHaveLength(600);
     expect(normalizeString(42)).toBe("");
+    expect(normalizeString("  Na\u0303o  ")).toBe("Não");
   });
 
   it("rejects invalid payloads", () => {
@@ -42,16 +43,21 @@ describe("analyze route helpers", () => {
   it("sanitizes valid payload data", () => {
     const result = validateAnalyzePayload({
       name: "  Kleiton  ",
-      headline: "  Desenvolvedor Backend  ",
-      experiences: ["  API em Node.js  ", "", null, "x".repeat(800)],
+      headline: "  Desenvolvedor Backend Na\u0303o  ",
+      experiences: [
+        "  API em Node.js e integraça\u0303o  ",
+        "",
+        null,
+        "x".repeat(800),
+      ],
     });
 
     expect(result).toEqual({
       isValid: true,
       data: {
         name: "Kleiton",
-        headline: "Desenvolvedor Backend",
-        experiences: ["API em Node.js", "x".repeat(600)],
+        headline: "Desenvolvedor Backend Não",
+        experiences: ["API em Node.js e integração", "x".repeat(600)],
       },
     });
   });

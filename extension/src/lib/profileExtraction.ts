@@ -85,7 +85,7 @@ function stripCountPrefix(value: string) {
 }
 
 function normalizeText(value?: string | null) {
-  return String(value || "").replaceAll(/\s+/g, " ").trim();
+  return String(value || "").normalize("NFC").replaceAll(/\s+/g, " ").trim();
 }
 
 function normalizeMetadataToken(value: string) {

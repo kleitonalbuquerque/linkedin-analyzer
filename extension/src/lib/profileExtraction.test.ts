@@ -61,6 +61,21 @@ describe("extractLinkedInProfileFromDocument", () => {
     });
   });
 
+  it("normalizes decomposed unicode from the page into readable text", () => {
+    document.body.innerHTML = `
+      <main>
+        <h1>Kleiton Na&#771;o</h1>
+        <div class="text-body-medium break-words">Desenvolvedor com integrac&#807;a&#771;o e ac&#807;a&#771;o</div>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Não",
+      headline: "Desenvolvedor com integração e ação",
+      experiences: [],
+    });
+  });
+
   it("reads name and headline from the top card when the headline is split across hidden spans", () => {
     document.body.innerHTML = `
       <main>

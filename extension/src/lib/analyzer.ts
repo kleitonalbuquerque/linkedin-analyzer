@@ -122,9 +122,25 @@ const EXTERNAL_HEADLINE_SOURCE_TERMS = [
 ];
 const EDITORIAL_HEADLINE_PREFIXES = ["a ", "o ", "as ", "os ", "como ", "why ", "how ", "the "];
 
-function normalizeCaptureHeadline(value?: string) {
+function normalizeUnicodeText(value?: string) {
   return String(value || "")
-    .trim()
+    .normalize("NFC")
+    .replaceAll(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeProfile(profile: LinkedInProfile): LinkedInProfile {
+  return {
+    name: normalizeUnicodeText(profile.name),
+    headline: normalizeUnicodeText(profile.headline),
+    experiences: Array.isArray(profile.experiences)
+      ? profile.experiences.map((experience) => normalizeUnicodeText(experience)).filter(Boolean)
+      : [],
+  };
+}
+
+function normalizeCaptureHeadline(value?: string) {
+  return normalizeUnicodeText(value)
     .replaceAll(/^\d+[\d.,k]*\s+/gi, "")
     .normalize("NFD")
     .replaceAll(/[\u0300-\u036f]/g, "")
@@ -215,7 +231,7 @@ export async function getProfileFromActiveTab(tabId: number, chromeApi: ChromeAp
 }
 
 export function buildPdfFileName(profile: LinkedInProfile | null) {
-  return (profile?.name || "linkedin-profile")
+  return normalizeUnicodeText(profile?.name || "linkedin-profile")
     .toLowerCase()
     .replaceAll(/[^a-z0-9]+/g, "-")
     .replaceAll(/(^-|-$)/g, "") || "linkedin-profile";
@@ -247,7 +263,8 @@ export async function analyzeActiveProfile({
     throw new Error("Abra um perfil do LinkedIn antes de analisar.");
   }
 
-  const profile = await getProfileFromActiveTab(tab.id, chromeApi);
+  const rawProfile = await getProfileFromActiveTab(tab.id, chromeApi);
+  const profile = normalizeProfile(rawProfile);
 
   if (!hasProfileData(profile)) {
     console.warn("[LinkedIn Analyzer] Profile data was empty", profile);
@@ -309,8 +326,8 @@ export function exportAnalysisPdf(
   };
 
   const trimPdfText = (text: string) => text.length > PDF_MAX_TEXT_LENGTH
-    ? `${text.slice(0, PDF_MAX_TEXT_LENGTH - 3).trim()}...`
-    : text;
+    ? `${normalizeUnicodeText(text).slice(0, PDF_MAX_TEXT_LENGTH - 3).trim()}...`
+    : normalizeUnicodeText(text);
 
   const writeBlock = (text: string, fontSize = 12, gapAfter = 16) => {
     document.setFontSize(fontSize);

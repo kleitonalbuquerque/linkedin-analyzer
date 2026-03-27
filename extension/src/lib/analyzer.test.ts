@@ -152,6 +152,44 @@ describe("analyzeActiveProfile", () => {
     expect(result.profile.name).toBe("Kleiton");
   });
 
+  it("normalizes decomposed unicode before sending the profile to the backend", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/teste" }]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton Na\u0303o",
+          headline: "Backend com integraça\u0303o",
+          experiences: ["Atuaça\u0303o com Node.js"],
+        }),
+      },
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(createAnalysis()),
+    });
+
+    const result = await analyzeActiveProfile({
+      chromeApi,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com",
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith("https://api.example.com/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Kleiton Não",
+        headline: "Backend com integração",
+        experiences: ["Atuação com Node.js"],
+      }),
+    });
+    expect(result.profile).toEqual({
+      name: "Kleiton Não",
+      headline: "Backend com integração",
+      experiences: ["Atuação com Node.js"],
+    });
+  });
+
   it("fails when there is no active tab", async () => {
     const chromeApi = createChromeApi({
       tabs: {
@@ -345,6 +383,41 @@ describe("exportAnalysisPdf", () => {
       40,
       expect.any(Number),
     );
+  });
+
+  it("normalizes decomposed unicode before writing PDF text", () => {
+    const text = vi.fn();
+
+    class FakePdf {
+      internal = {
+        pageSize: {
+          getHeight: () => 600,
+        },
+      };
+
+      setFontSize = vi.fn();
+      splitTextToSize = vi.fn((value: string) => [value]);
+      text = text;
+      addPage = vi.fn();
+      save = vi.fn();
+    }
+
+    exportAnalysisPdf(
+      {
+        ...createAnalysis(),
+        resumo: "Percepça\u0303o clara com aça\u0303o concreta.",
+      },
+      {
+        name: "Kleiton Na\u0303o",
+        headline: "Backend com integraça\u0303o",
+        experiences: [],
+      },
+      FakePdf,
+    );
+
+    expect(text).toHaveBeenCalledWith(["Perfil: Kleiton Não"], 40, expect.any(Number));
+    expect(text).toHaveBeenCalledWith(["Headline: Backend com integração"], 40, expect.any(Number));
+    expect(text).toHaveBeenCalledWith(["Resumo: Percepção clara com ação concreta."], 40, expect.any(Number));
   });
 
   it("truncates oversized PDF list entries to keep the layout stable", () => {
