@@ -39,6 +39,66 @@ const HEADLINE_METADATA_TERMS = new Set([
 ]);
 const SECONDARY_HEADLINE_METADATA_PATTERN =
   /seguidores|followers|conexoes|connections|contact info/i;
+const PROFESSIONAL_HEADLINE_KEYWORDS = [
+  "engineer",
+  "engenheiro",
+  "developer",
+  "desenvolvedor",
+  "software",
+  "frontend",
+  "front-end",
+  "backend",
+  "back-end",
+  "full stack",
+  "fullstack",
+  "react",
+  "next",
+  "node",
+  "java",
+  "typescript",
+  "tech lead",
+  "lead",
+  "analista",
+  "analyst",
+  "especialista",
+  "specialist",
+  "arquiteto",
+  "architect",
+  "ux",
+  "ui",
+  "produto",
+  "product",
+  "designer",
+  "consultant",
+  "consultor",
+];
+const EXTERNAL_HEADLINE_SOURCE_TERMS = [
+  "migalhas",
+  "medium",
+  "substack",
+  "youtube",
+  "uol",
+  "globo",
+  "g1",
+  "forbes",
+  "exame",
+  "cnn",
+  "terra",
+  "folha",
+  "estadao",
+  "estadão",
+  "valor",
+];
+const EDITORIAL_HEADLINE_PREFIXES = [
+  "a ",
+  "o ",
+  "as ",
+  "os ",
+  "como ",
+  "why ",
+  "how ",
+  "the ",
+];
 
 function stripCountPrefix(value) {
   return value.replaceAll(/^\d+[\d.,k]*\s+/gi, "");
@@ -50,6 +110,48 @@ function isMetadataHeadline(value) {
       .normalize("NFD")
       .replaceAll(/[\u0300-\u036f]/g, "")
       .toLowerCase(),
+  );
+}
+
+function normalizeHeadlineToken(value) {
+  return stripCountPrefix(normalizeText(value))
+    .normalize("NFD")
+    .replaceAll(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function hasProfessionalHeadlineSignal(value) {
+  const normalized = normalizeHeadlineToken(value);
+
+  return PROFESSIONAL_HEADLINE_KEYWORDS.some((keyword) =>
+    normalized.includes(keyword),
+  );
+}
+
+function isLikelyExternalHeadline(value) {
+  const normalized = normalizeHeadlineToken(value);
+
+  if (!normalized || !hasMeaningfulLetters(value)) {
+    return false;
+  }
+
+  if (
+    EXTERNAL_HEADLINE_SOURCE_TERMS.some((term) => normalized.includes(term))
+  ) {
+    return true;
+  }
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const startsLikeEditorialTitle = EDITORIAL_HEADLINE_PREFIXES.some((prefix) =>
+    normalized.startsWith(prefix),
+  );
+  const hasEditorialShape =
+    (value.includes("?") || value.includes(":")) && words.length >= 7;
+
+  return (
+    words.length >= 8 &&
+    !hasProfessionalHeadlineSignal(value) &&
+    (startsLikeEditorialTitle || hasEditorialShape)
   );
 }
 
@@ -95,6 +197,7 @@ function cleanHeadline(value, name) {
           part !== name &&
           hasMeaningfulLetters(part) &&
           !isMetadataHeadline(part) &&
+          !isLikelyExternalHeadline(part) &&
           !SECONDARY_HEADLINE_METADATA_PATTERN.test(part),
       ) || ""
   );
@@ -117,7 +220,7 @@ function extractNameFromTitle() {
 function extractHeadlineFromTitle(name) {
   const normalizedTitle = normalizeText(document.title);
 
-  if (!normalizedTitle) {
+  if (!normalizedTitle || !/linkedin/i.test(normalizedTitle)) {
     return "";
   }
 
@@ -134,7 +237,11 @@ function extractHeadlineFromTitle(name) {
     ? normalizeText(firstRelevantSegment.split(" - ").slice(1).join(" - "))
     : firstRelevantSegment;
 
-  return roleSegment && hasMeaningfulLetters(roleSegment) ? roleSegment : "";
+  return roleSegment &&
+    hasMeaningfulLetters(roleSegment) &&
+    !isLikelyExternalHeadline(roleSegment)
+    ? roleSegment
+    : "";
 }
 
 function truncateText(value, maxLength) {

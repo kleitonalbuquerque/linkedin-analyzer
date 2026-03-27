@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { extractLinkedInProfileFromDocument, isMetadataHeadline } from "./profileExtraction";
+import {
+  extractLinkedInProfileFromDocument,
+  isLikelyExternalHeadline,
+  isMetadataHeadline,
+} from "./profileExtraction";
 
 describe("extractLinkedInProfileFromDocument", () => {
   beforeEach(() => {
@@ -225,11 +229,15 @@ describe("extractLinkedInProfileFromDocument", () => {
   });
 
   it("treats comment counters as invalid headline metadata", () => {
+    expect(isLikelyExternalHeadline("")).toBe(false);
     expect(isMetadataHeadline("1 comentário")).toBe(true);
     expect(isMetadataHeadline("42 comments")).toBe(true);
     expect(isMetadataHeadline("68 compartilhamentos")).toBe(true);
     expect(isMetadataHeadline("99 shares")).toBe(true);
     expect(isMetadataHeadline("Backend Engineer")).toBe(false);
+    expect(isLikelyExternalHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
+    expect(isLikelyExternalHeadline("Como escalar plataformas: lições práticas para engenharia moderna")).toBe(true);
+    expect(isLikelyExternalHeadline("Full Stack Engineer | React | Node.js | Java")).toBe(false);
   });
 
   it("ignores comment metadata and falls back to the title headline", () => {
@@ -248,6 +256,46 @@ describe("extractLinkedInProfileFromDocument", () => {
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "Kleiton Albuquerque",
       headline: "Software Engineer",
+      experiences: [],
+    });
+  });
+
+  it("ignores external article-like headlines captured from the page", () => {
+    document.title = "Kleiton Albuquerque - Software Engineer | LinkedIn";
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <h1>Kleiton Albuquerque</h1>
+            <div class="text-body-medium">A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Engineer",
+      experiences: [],
+    });
+  });
+
+  it("does not use non-profile titles as headline fallback", () => {
+    document.title = "A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas";
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <h1>Kleiton Albuquerque</h1>
+            <div class="text-body-medium">719</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "",
       experiences: [],
     });
   });

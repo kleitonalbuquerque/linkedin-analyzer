@@ -75,6 +75,52 @@ const INVALID_CAPTURE_HEADLINE_TERMS = new Set([
   "like",
   "likes",
 ]);
+const PROFESSIONAL_HEADLINE_KEYWORDS = [
+  "engineer",
+  "engenheiro",
+  "developer",
+  "desenvolvedor",
+  "software",
+  "frontend",
+  "front-end",
+  "backend",
+  "back-end",
+  "full stack",
+  "fullstack",
+  "react",
+  "next",
+  "node",
+  "java",
+  "typescript",
+  "analista",
+  "analyst",
+  "especialista",
+  "specialist",
+  "arquiteto",
+  "architect",
+  "ux",
+  "ui",
+  "product",
+  "produto",
+];
+const EXTERNAL_HEADLINE_SOURCE_TERMS = [
+  "migalhas",
+  "medium",
+  "substack",
+  "youtube",
+  "uol",
+  "globo",
+  "g1",
+  "forbes",
+  "exame",
+  "cnn",
+  "terra",
+  "folha",
+  "estadao",
+  "estadão",
+  "valor",
+];
+const EDITORIAL_HEADLINE_PREFIXES = ["a ", "o ", "as ", "os ", "como ", "why ", "how ", "the "];
 
 function normalizeCaptureHeadline(value?: string) {
   return String(value || "")
@@ -83,6 +129,31 @@ function normalizeCaptureHeadline(value?: string) {
     .normalize("NFD")
     .replaceAll(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+function hasProfessionalHeadlineSignal(value?: string) {
+  const normalized = normalizeCaptureHeadline(value);
+
+  return PROFESSIONAL_HEADLINE_KEYWORDS.some((keyword) => normalized.includes(keyword));
+}
+
+export function isLikelyExternalHeadline(headline?: string) {
+  const rawHeadline = String(headline || "").trim();
+  const normalized = normalizeCaptureHeadline(rawHeadline);
+
+  if (!normalized) {
+    return false;
+  }
+
+  if (EXTERNAL_HEADLINE_SOURCE_TERMS.some((term) => normalized.includes(term))) {
+    return true;
+  }
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const startsLikeEditorialTitle = EDITORIAL_HEADLINE_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+  const hasEditorialShape = (rawHeadline.includes("?") || rawHeadline.includes(":")) && words.length >= 7;
+
+  return words.length >= 8 && !hasProfessionalHeadlineSignal(rawHeadline) && (startsLikeEditorialTitle || hasEditorialShape);
 }
 
 export function isLinkedInProfileUrl(url?: string) {
@@ -94,12 +165,12 @@ export function hasProfileData(profile: LinkedInProfile) {
 }
 
 export function isSuspiciousProfileHeadline(headline?: string) {
-  return INVALID_CAPTURE_HEADLINE_TERMS.has(normalizeCaptureHeadline(headline));
+  return INVALID_CAPTURE_HEADLINE_TERMS.has(normalizeCaptureHeadline(headline)) || isLikelyExternalHeadline(headline);
 }
 
 export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string) {
   if (isSuspiciousProfileHeadline(profile.headline)) {
-    return "O LinkedIn parece ter capturado metadados da pagina em vez da headline do perfil. Feche modais e analise a pagina principal do perfil.";
+    return "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil. Feche modais e analise a pagina principal do perfil.";
   }
 
   const experiencesCount = profile.experiences?.length || 0;

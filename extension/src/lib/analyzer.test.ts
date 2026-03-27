@@ -8,6 +8,7 @@ import {
   getProfileCaptureError,
   getProfileFromActiveTab,
   hasProfileData,
+  isLikelyExternalHeadline,
   isSuspiciousProfileHeadline,
   isLinkedInProfileUrl,
   type AnalysisResult,
@@ -54,8 +55,13 @@ describe("analyzer helpers", () => {
     expect(hasProfileData({ headline: "Backend Engineer" })).toBe(true);
     expect(hasProfileData({ experiences: ["Projeto"] })).toBe(true);
     expect(hasProfileData({})).toBe(false);
+    expect(isLikelyExternalHeadline()).toBe(false);
     expect(isSuspiciousProfileHeadline("1 comentário")).toBe(true);
+    expect(isSuspiciousProfileHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
     expect(isSuspiciousProfileHeadline("Backend Engineer")).toBe(false);
+    expect(isLikelyExternalHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
+    expect(isLikelyExternalHeadline("Como escalar plataformas: lições práticas para engenharia moderna")).toBe(true);
+    expect(isLikelyExternalHeadline("How to scale Node.js APIs in production as a Backend Engineer")).toBe(false);
     expect(formatAnalysisProvider("local-fallback")).toBe("Analise local");
     expect(formatAnalysisProvider("groq:openai/gpt-oss-120b")).toContain("IA (Groq");
     expect(formatAnalysisProvider()).toBe("Nao informado");
@@ -65,7 +71,7 @@ describe("analyzer helpers", () => {
         { name: "Kleiton", headline: "1 comentário", experiences: ["Projeto"] },
         "https://www.linkedin.com/in/teste/details/featured/",
       ),
-    ).toContain("capturado metadados");
+    ).toContain("capturado metadados da pagina ou um titulo externo");
     expect(
       getProfileCaptureError(
         { name: "Kleiton", headline: "Software Engineer", experiences: ["Projeto 1", "Projeto 2"] },
@@ -194,7 +200,26 @@ describe("analyzeActiveProfile", () => {
     });
 
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
-      "O LinkedIn parece ter capturado metadados da pagina em vez da headline do perfil.",
+      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
+    );
+  });
+
+  it("fails when the captured headline looks like an external article title", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([
+          { id: 10, url: "https://www.linkedin.com/in/teste/details/featured/" },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas",
+          experiences: ["Resumo do perfil", "Projeto 1"],
+        }),
+      },
+    });
+
+    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
+      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
     );
   });
 
