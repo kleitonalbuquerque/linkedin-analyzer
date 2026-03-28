@@ -246,11 +246,13 @@ describe("extractLinkedInProfileFromDocument", () => {
   it("treats comment counters as invalid headline metadata", () => {
     expect(isLikelyExternalHeadline("")).toBe(false);
     expect(isMetadataHeadline("LIVE")).toBe(true);
+    expect(isMetadataHeadline("me ajudou a conseguir este emprego")).toBe(true);
     expect(isMetadataHeadline("1 comentário")).toBe(true);
     expect(isMetadataHeadline("42 comments")).toBe(true);
     expect(isMetadataHeadline("68 compartilhamentos")).toBe(true);
     expect(isMetadataHeadline("99 shares")).toBe(true);
     expect(isMetadataHeadline("Backend Engineer")).toBe(false);
+    expect(isLikelyExternalHeadline("me ajudou a conseguir este emprego")).toBe(true);
     expect(isLikelyExternalHeadline("SRE Pleno (SP16101308)")).toBe(true);
     expect(isLikelyExternalHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
     expect(isLikelyExternalHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
@@ -286,6 +288,26 @@ describe("extractLinkedInProfileFromDocument", () => {
           <div>
             <h1>Kleiton Albuquerque</h1>
             <div class="text-body-medium">LIVE</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Engineer",
+      experiences: [],
+    });
+  });
+
+  it("ignores LinkedIn social-proof job badges", () => {
+    document.title = "Kleiton Albuquerque - Software Engineer | LinkedIn";
+    document.body.innerHTML = `
+      <main>
+        <section>
+          <div>
+            <h1>Kleiton Albuquerque</h1>
+            <div class="text-body-medium">me ajudou a conseguir este emprego</div>
           </div>
         </section>
       </main>

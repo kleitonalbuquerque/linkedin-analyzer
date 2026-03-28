@@ -57,11 +57,13 @@ describe("analyzer helpers", () => {
     expect(hasProfileData({})).toBe(false);
     expect(isLikelyExternalHeadline()).toBe(false);
     expect(isSuspiciousProfileHeadline("LIVE")).toBe(true);
+    expect(isSuspiciousProfileHeadline("me ajudou a conseguir este emprego")).toBe(true);
     expect(isSuspiciousProfileHeadline("SRE Pleno (SP16101308)")).toBe(true);
     expect(isSuspiciousProfileHeadline("1 comentário")).toBe(true);
     expect(isSuspiciousProfileHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
     expect(isSuspiciousProfileHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
     expect(isSuspiciousProfileHeadline("Backend Engineer")).toBe(false);
+    expect(isLikelyExternalHeadline("me ajudou a conseguir este emprego")).toBe(true);
     expect(isLikelyExternalHeadline("SRE Pleno (SP16101308)")).toBe(true);
     expect(isLikelyExternalHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
     expect(isLikelyExternalHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
@@ -256,6 +258,25 @@ describe("analyzeActiveProfile", () => {
         sendMessage: vi.fn().mockResolvedValue({
           name: "Kleiton",
           headline: "LIVE",
+          experiences: ["Resumo do perfil", "Projeto 1"],
+        }),
+      },
+    });
+
+    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
+      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
+    );
+  });
+
+  it("fails when the captured headline is a LinkedIn social-proof badge", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([
+          { id: 10, url: "https://www.linkedin.com/in/teste/details/featured/" },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "me ajudou a conseguir este emprego",
           experiences: ["Resumo do perfil", "Projeto 1"],
         }),
       },

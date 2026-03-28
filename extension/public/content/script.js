@@ -105,17 +105,22 @@ const EDITORIAL_HEADLINE_PREFIXES = [
 ];
 const JOB_REFERENCE_PATTERN =
   /\(([a-z]{2,}[\d-]{3,}|[a-z]+\d{4,}|[a-z]{1,4}\d{5,})\)$/i;
+const SOCIAL_PROOF_HEADLINE_PATTERN =
+  /(?:^|\s)(?:me ajudou a conseguir (?:este|esse) emprego|helped me get this job)(?:$|\s)/i;
 
 function stripCountPrefix(value) {
   return value.replaceAll(/^\d+[\d.,k]*\s+/gi, "");
 }
 
 function isMetadataHeadline(value) {
-  return HEADLINE_METADATA_TERMS.has(
-    stripCountPrefix(normalizeText(value))
-      .normalize("NFD")
-      .replaceAll(/[\u0300-\u036f]/g, "")
-      .toLowerCase(),
+  const normalized = stripCountPrefix(normalizeText(value))
+    .normalize("NFD")
+    .replaceAll(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  return (
+    HEADLINE_METADATA_TERMS.has(normalized) ||
+    SOCIAL_PROOF_HEADLINE_PATTERN.test(normalized)
   );
 }
 
@@ -143,6 +148,10 @@ function isLikelyExternalHeadline(value) {
   }
 
   if (JOB_REFERENCE_PATTERN.test(trimmedValue)) {
+    return true;
+  }
+
+  if (SOCIAL_PROOF_HEADLINE_PATTERN.test(trimmedValue)) {
     return true;
   }
 
