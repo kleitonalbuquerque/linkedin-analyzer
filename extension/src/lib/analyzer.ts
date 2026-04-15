@@ -1,5 +1,3 @@
-import { jsPDF } from "jspdf";
-
 const DEFAULT_API_BASE_URL = "http://localhost:3000";
 const PROFILE_MESSAGE = { type: "GET_PROFILE" } as const;
 
@@ -57,10 +55,48 @@ type PdfDocument = {
   save(fileName: string): void;
 };
 
-type PdfConstructor = new (options: { unit: string; format: string }) => PdfDocument;
+type PdfConstructor = new (options?: { unit: string; format: string }) => PdfDocument;
+
+type PdfTextOperation = {
+  text: string[];
+  x: number;
+  y: number;
+  fontSize: number;
+};
 
 const PDF_MAX_SECTION_ITEMS = 4;
 const PDF_MAX_TEXT_LENGTH = 260;
+const PDF_A4_WIDTH = 595.28;
+const PDF_A4_HEIGHT = 841.89;
+const PDF_WIN_ANSI_SPECIAL_CHARS = new Map<number, number>([
+  [8364, 128],
+  [8218, 130],
+  [402, 131],
+  [8222, 132],
+  [8230, 133],
+  [8224, 134],
+  [8225, 135],
+  [710, 136],
+  [8240, 137],
+  [352, 138],
+  [8249, 139],
+  [338, 140],
+  [381, 142],
+  [8216, 145],
+  [8217, 146],
+  [8220, 147],
+  [8221, 148],
+  [8226, 149],
+  [8211, 150],
+  [8212, 151],
+  [732, 152],
+  [8482, 153],
+  [353, 154],
+  [8250, 155],
+  [339, 156],
+  [382, 158],
+  [376, 159],
+]);
 const INVALID_CAPTURE_HEADLINE_TERMS = new Set([
   "live",
   "comentario",
@@ -124,6 +160,227 @@ const EXTERNAL_HEADLINE_SOURCE_TERMS = [
 const EDITORIAL_HEADLINE_PREFIXES = ["a ", "o ", "as ", "os ", "como ", "por que ", "porque ", "why ", "how ", "the "];
 const JOB_REFERENCE_PATTERN = /\(([a-z]{2,}[\d-]{3,}|[a-z]+\d{4,}|[a-z]{1,4}\d{5,})\)$/i;
 const SOCIAL_PROOF_HEADLINE_PATTERN = /(?:^|\s)(?:me ajudou a conseguir (?:este|esse) emprego|helped me get this job)(?:$|\s)/i;
+
+export class BrowserPdfDocument implements PdfDocument {
+  internal = {
+    pageSize: {
+      getWidth: () => PDF_A4_WIDTH,
+      getHeight: () => PDF_A4_HEIGHT,
+    },
+  };
+
+  private fontSize = 12;
+
+  private readonly pages: PdfTextOperation[][] = [[]];
+
+  setFontSize(size: number) {
+    this.fontSize = size;
+  }
+
+  splitTextToSize(text: string, maxWidth: number) {
+    const normalized = normalizeUnicodeText(text);
+
+    if (!normalized) {
+      return [""];
+    }
+
+    const words = normalized.split(/\s+/).filter(Boolean);
+
+    /* v8 ignore next -- a non-empty normalized string always yields at least one word */
+    if (!words.length) {
+      return [normalized];
+    }
+
+    const lines: string[] = [];
+    let currentLine = "";
+
+    for (const word of words) {
+      const nextLine = currentLine ? `${currentLine} ${word}` : word;
+
+      if (this.estimateTextWidth(nextLine) <= maxWidth) {
+        currentLine = nextLine;
+        continue;
+      }
+
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+
+      currentLine = this.breakLongWord(word, maxWidth);
+    }
+
+    /* v8 ignore next -- after iterating at least one word, currentLine is always populated */
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines.length ? lines : [normalized];
+  }
+
+  text(text: string | string[], x: number, y: number) {
+    const currentPage = this.pages.at(-1);
+
+    /* v8 ignore next -- the document always starts with one page and pages are never removed */
+    if (!currentPage) {
+      return;
+    }
+
+    currentPage.push({
+      text: Array.isArray(text) ? text : [text],
+      x,
+      y,
+      fontSize: this.fontSize,
+    });
+  }
+
+  addPage() {
+    this.pages.push([]);
+  }
+
+  save(fileName: string) {
+    if (typeof Blob === "undefined" || typeof document === "undefined" || typeof URL === "undefined") {
+      return;
+    }
+
+    const pdfContent = this.buildPdfContent();
+    const blob = new Blob([pdfContent], { type: "application/pdf" });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = fileName;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+  }
+
+  private estimateTextWidth(text: string) {
+    return text.length * this.fontSize * 0.52;
+  }
+
+  private breakLongWord(word: string, maxWidth: number) {
+    if (this.estimateTextWidth(word) <= maxWidth) {
+      return word;
+    }
+
+    const approximateChars = Math.max(1, Math.floor(maxWidth / (this.fontSize * 0.52)));
+    const segments: string[] = [];
+
+    for (let index = 0; index < word.length; index += approximateChars) {
+      segments.push(word.slice(index, index + approximateChars));
+    }
+
+    return segments.join(" ");
+  }
+
+  private buildPdfContent() {
+    const objects: string[] = [];
+    const pageObjectNumbers: number[] = [];
+    const fontObjectNumber = 3;
+
+    objects[0] = "";
+    objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+    objects[2] = "";
+    objects[fontObjectNumber] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+
+    let nextObjectNumber = fontObjectNumber + 1;
+
+    for (const pageOperations of this.pages) {
+      const contentStream = this.buildPageStream(pageOperations);
+      const contentObjectNumber = nextObjectNumber++;
+      const pageObjectNumber = nextObjectNumber++;
+
+      pageObjectNumbers.push(pageObjectNumber);
+      objects[contentObjectNumber] = `<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream`;
+      objects[pageObjectNumber] = [
+        "<< /Type /Page",
+        "/Parent 2 0 R",
+        `/MediaBox [0 0 ${PDF_A4_WIDTH} ${PDF_A4_HEIGHT}]`,
+        `/Resources << /Font << /F1 ${fontObjectNumber} 0 R >> >>`,
+        `/Contents ${contentObjectNumber} 0 R`,
+        ">>",
+      ].join("\n");
+    }
+
+    const pageKids = pageObjectNumbers.map((objectNumber) => `${objectNumber} 0 R`).join(" ");
+
+    objects[2] = [
+      `<< /Type /Pages /Count ${pageObjectNumbers.length}`,
+      `/Kids [${pageKids}]`,
+      ">>",
+    ].join("\n");
+
+    return this.serializePdf(objects);
+  }
+
+  private buildPageStream(pageOperations: PdfTextOperation[]) {
+    return pageOperations
+      .flatMap((operation) => operation.text.map((line, lineIndex) => this.buildTextCommand(
+        line,
+        operation.x,
+        operation.y - (lineIndex * (operation.fontSize + 2)),
+        operation.fontSize,
+      )))
+      .join("\n");
+  }
+
+  private buildTextCommand(text: string, x: number, y: number, fontSize: number) {
+    const encodedText = this.encodePdfText(text);
+    const pdfY = PDF_A4_HEIGHT - y;
+
+    return `BT\n/F1 ${fontSize} Tf\n1 0 0 1 ${x.toFixed(2)} ${pdfY.toFixed(2)} Tm\n<${encodedText}> Tj\nET`;
+  }
+
+  private encodePdfText(text: string) {
+    return Array.from(normalizeUnicodeText(text), (character) => this.encodePdfCharacter(character))
+      .map((value) => value.toString(16).padStart(2, "0").toUpperCase())
+      .join("");
+  }
+
+  private encodePdfCharacter(character: string) {
+    const codePoint = character.codePointAt(0) || 63;
+
+    if (codePoint >= 32 && codePoint <= 126) {
+      return codePoint;
+    }
+
+    if ((codePoint >= 160 && codePoint <= 255) || codePoint === 10 || codePoint === 13) {
+      return codePoint;
+    }
+
+    return PDF_WIN_ANSI_SPECIAL_CHARS.get(codePoint) || 63;
+  }
+
+  private serializePdf(objects: string[]) {
+    let pdf = "%PDF-1.4\n";
+    const offsets: number[] = [0];
+
+    for (let index = 1; index < objects.length; index += 1) {
+      offsets[index] = pdf.length;
+      pdf += `${index} 0 obj\n${objects[index]}\nendobj\n`;
+    }
+
+    const xrefStart = pdf.length;
+    pdf += `xref\n0 ${objects.length}\n`;
+    pdf += "0000000000 65535 f \n";
+
+    for (let index = 1; index < objects.length; index += 1) {
+      pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+    }
+
+    pdf += [
+      "trailer",
+      `<< /Size ${objects.length} /Root 1 0 R >>`,
+      "startxref",
+      String(xrefStart),
+      "%%EOF",
+    ].join("\n");
+
+    return pdf;
+  }
+}
 
 function normalizeUnicodeText(value?: string) {
   return String(value || "")
@@ -321,7 +578,7 @@ export async function analyzeActiveProfile({
 export function exportAnalysisPdf(
   analysis: AnalysisResult | null,
   profile: LinkedInProfile | null,
-  PdfCtor: PdfConstructor = jsPDF as unknown as PdfConstructor,
+  PdfCtor: PdfConstructor = BrowserPdfDocument,
 ) {
   if (!analysis) {
     return false;

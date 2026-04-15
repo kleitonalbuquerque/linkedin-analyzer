@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   analyzeActiveProfile,
+  BrowserPdfDocument,
   buildPdfFileName,
   exportAnalysisPdf,
   formatAnalysisProvider,
@@ -391,6 +392,133 @@ describe("analyzeActiveProfile", () => {
 });
 
 describe("exportAnalysisPdf", () => {
+  it("serializes a local PDF and triggers a browser download", async () => {
+    class FakeBlob {
+      readonly type: string;
+
+      private readonly value: string;
+
+      constructor(parts: unknown[], options?: { type?: string }) {
+        this.type = options?.type || "";
+        this.value = parts.join("");
+      }
+
+      async text() {
+        return this.value;
+      }
+    }
+
+    const createObjectURL = vi.fn().mockReturnValue("blob:analysis-pdf");
+    const revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const appendChild = vi.spyOn(document.body, "appendChild");
+
+    vi.stubGlobal("Blob", FakeBlob);
+    vi.stubGlobal("URL", {
+      createObjectURL,
+      revokeObjectURL,
+    });
+
+    expect(
+      exportAnalysisPdf(
+        {
+          ...createAnalysis(),
+          resumo: "Percepção clara com ação concreta.",
+          pontosFortes: ["Entrega com consistência"],
+          pontosFracos: ["Precisa explicitar impacto"],
+          problemas: ["Resumo sem números"],
+          sugestoes: ["Adicionar métricas por projeto"],
+        },
+        {
+          name: "Kleiton Não",
+          headline: "Backend com integração",
+          experiences: ["Atuação com APIs críticas"],
+        },
+      ),
+    ).toBe(true);
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+
+    const pdfBlob = createObjectURL.mock.calls[0][0] as InstanceType<typeof FakeBlob>;
+    const content = await pdfBlob.text();
+    const link = appendChild.mock.calls[0][0] as HTMLAnchorElement;
+
+    expect(pdfBlob.type).toBe("application/pdf");
+    expect(content).toContain("%PDF-1.4");
+    expect(content).toContain("/Type /Catalog");
+    expect(content).toContain("/Count 1");
+    expect(content).toContain("4B6C6569746F6E204EE36F");
+    expect(link.download).toBe("kleiton-n-o-analysis.pdf");
+    expect(link.href).toBe("blob:analysis-pdf");
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:analysis-pdf");
+
+    click.mockRestore();
+    appendChild.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("covers text splitting, pagination and missing browser APIs in the local PDF writer", async () => {
+    class FakeBlob {
+      readonly type: string;
+
+      private readonly value: string;
+
+      constructor(parts: unknown[], options?: { type?: string }) {
+        this.type = options?.type || "";
+        this.value = parts.join("");
+      }
+
+      async text() {
+        return this.value;
+      }
+    }
+
+    const createObjectURL = vi.fn().mockReturnValue("blob:multi-page-pdf");
+    const revokeObjectURL = vi.fn();
+
+    vi.stubGlobal("Blob", FakeBlob);
+    vi.stubGlobal("URL", {
+      createObjectURL,
+      revokeObjectURL,
+    });
+
+    const pdfDocument = new BrowserPdfDocument();
+
+    expect(pdfDocument.internal.pageSize.getWidth()).toBeGreaterThan(500);
+    expect(pdfDocument.splitTextToSize("   ", 120)).toEqual([""]);
+    expect(pdfDocument.splitTextToSize("um teste simples", 24).length).toBeGreaterThan(1);
+    expect(pdfDocument.splitTextToSize("supercalifragilisticoespialidoso", 24)[0]).toContain(" ");
+
+    const lines = pdfDocument.splitTextToSize("PalavraMuitoLongaSemEspacos".repeat(24), 60);
+
+    lines.forEach((line, index) => {
+      pdfDocument.text(line, 40, 60 + (index * 14));
+    });
+
+    pdfDocument.addPage();
+    pdfDocument.setFontSize(14);
+    pdfDocument.text("Página 2 €漢", 40, 60);
+    pdfDocument.save("multi-page.pdf");
+
+    const pdfBlob = createObjectURL.mock.calls[0][0] as InstanceType<typeof FakeBlob>;
+    const content = await pdfBlob.text();
+
+    expect(content).toContain("/Count 2");
+    expect(content).toContain("50E167696E61203220803F");
+
+    vi.unstubAllGlobals();
+
+    const unavailableApiDocument = new BrowserPdfDocument();
+
+    vi.stubGlobal("Blob", undefined);
+    vi.stubGlobal("URL", undefined);
+
+    expect(() => unavailableApiDocument.save("noop.pdf")).not.toThrow();
+
+    vi.unstubAllGlobals();
+  });
+
   it("returns false when there is no analysis to export", () => {
     expect(exportAnalysisPdf(null, null)).toBe(false);
   });
