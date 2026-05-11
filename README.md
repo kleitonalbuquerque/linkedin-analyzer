@@ -21,7 +21,7 @@ A extensao e responsavel por:
 
 - detectar quando o usuario esta em uma pagina de perfil do LinkedIn
 - capturar dados visiveis do perfil, como nome, headline e experiencias
-- enviar essas informacoes para analise
+- enviar essas informacoes para analise apenas quando o usuario clica em `Analisar perfil`
 - exibir no popup uma pontuacao e sugestoes de melhoria
 
 ### 2. Backend
@@ -59,13 +59,14 @@ O repositorio agora inclui configuracoes por ambiente para a extensao:
 - `extension/.env.development` aponta para `http://localhost:3000`
 - `extension/.env.production` aponta para `https://linkedin-analyzer-backend-2v7h.onrender.com`
 - `extension/public/manifest.dev.json` inclui permissao de `localhost`
-- `extension/public/manifest.store.json` mantem apenas LinkedIn e Render para publicacao
+- `extension/public/manifest.store.json` mantem apenas LinkedIn e Render para publicacao, sem injecao dinamica de scripts
 
 Com isso, o fluxo recomendado passa a ser:
 
 - `npm run dev` em `extension/` para trabalhar com backend local
 - `npm run build:dev` em `extension/` para gerar um pacote de desenvolvimento
 - `npm run build:store` em `extension/` para gerar o pacote pronto para Chrome Web Store
+- o build de loja executa uma auditoria automatica para bloquear `localhost`, manifestos extras e padroes proibidos no bundle final
 
 ### Gerar o zip da extensao por linha de comando
 
@@ -106,6 +107,15 @@ O arquivo gerado inclui:
 - `extension/`: extensao do Chrome responsavel pela captura e exibicao do resultado
 - `PRIVACY_POLICY.md`: politica de privacidade versionada para publicacao em URL publica
 - `docs/`: arquivos estaticos para publicar a politica de privacidade no GitHub Pages
+
+## Conformidade Chrome Web Store
+
+O fluxo de loja foi endurecido para facilitar a revisao da Chrome Web Store:
+
+- o pacote publicado nao depende de `activeTab` nem `scripting`
+- o `content_script` e empacotado localmente no build e nao e injetado a partir de codigo remoto
+- o popup deixa explicito que o envio de dados so acontece apos clique do usuario
+- a auditoria de `build:store` falha se encontrar artefatos extras ou padroes associados a remote hosted code
 
 ## Testes e coverage
 

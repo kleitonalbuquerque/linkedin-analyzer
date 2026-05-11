@@ -6,6 +6,8 @@
   "scripts": {
     "manifest:dev": "node scripts/use-manifest.mjs dev",
     "manifest:store": "node scripts/use-manifest.mjs store",
+    "prepare:store": "node scripts/prepare-store-dist.mjs",
+    "audit:store": "node scripts/audit-store-bundle.mjs",
     "assets:store": "node scripts/generate-store-assets.mjs",
     "predev": "npm run manifest:dev",
     "dev": "vite --mode development",
@@ -13,7 +15,7 @@
     "prebuild:dev": "npm run manifest:dev",
     "build:dev": "tsc -b && vite build --mode development",
     "prebuild:store": "npm run manifest:store",
-    "build:store": "tsc -b && vite build",
+    "build:store": "tsc -b && vite build && npm run prepare:store && npm run audit:store",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint .",

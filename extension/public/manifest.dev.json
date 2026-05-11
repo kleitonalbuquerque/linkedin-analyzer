@@ -9,15 +9,14 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": [
-    "activeTab",
-    "scripting"
-  ],
   "host_permissions": [
     "http://localhost:3000/*",
     "https://*.onrender.com/*",
     "https://www.linkedin.com/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  },
   "action": {
     "default_popup": "index.html",
     "default_icon": {

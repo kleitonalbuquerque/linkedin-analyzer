@@ -9,6 +9,10 @@ import {
   type LinkedInProfile,
 } from "./lib/analyzer";
 
+function isExpectedUserError(message: string) {
+  return /Atualize a aba|Abra um perfil|Nao foi possivel capturar|metadados da pagina|visualizacao do LinkedIn|Payload invalido/i.test(message);
+}
+
 function App() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,11 +29,15 @@ function App() {
       setProfile(result.profile);
       setAnalysis(result.analysis);
     } catch (caughtError) {
-      console.error("[LinkedIn Analyzer] Analysis failed", caughtError);
-
       const message = caughtError instanceof Error
         ? caughtError.message
         : "Erro desconhecido ao analisar o perfil.";
+
+      if (isExpectedUserError(message)) {
+        console.info("[LinkedIn Analyzer] Analysis blocked", message);
+      } else {
+        console.error("[LinkedIn Analyzer] Analysis failed", caughtError);
+      }
 
       setError(`Falha ao analisar o perfil: ${message}`);
     } finally {
@@ -49,6 +57,14 @@ function App() {
           <h1>Diagnostico de perfil com score de mercado</h1>
           <p className="hero-copy">
             Capture o perfil aberto no LinkedIn, gere sugestoes com IA e exporte um PDF do resultado.
+          </p>
+          <p className="disclosure-copy">
+            Ao clicar em Analisar perfil, a extensao envia apenas nome, headline e experiencias visiveis do
+            perfil aberto para o backend do LinkedIn Analyzer processar o diagnostico.
+          </p>
+          <p className="privacy-copy">
+            Sem essa acao, nenhum dado do perfil e enviado. Consulte a politica de privacidade publica do
+            projeto para mais detalhes.
           </p>
         </div>
 

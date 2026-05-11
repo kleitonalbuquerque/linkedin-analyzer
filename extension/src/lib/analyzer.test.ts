@@ -27,10 +27,6 @@ function createChromeApi(overrides: Partial<ChromeApi> = {}): ChromeApi {
       }),
       ...overrides.tabs,
     },
-    scripting: {
-      executeScript: vi.fn().mockResolvedValue(undefined),
-      ...overrides.scripting,
-    },
   };
 }
 
@@ -59,12 +55,20 @@ describe("analyzer helpers", () => {
     expect(isLikelyExternalHeadline()).toBe(false);
     expect(isSuspiciousProfileHeadline("LIVE")).toBe(true);
     expect(isSuspiciousProfileHeadline("me ajudou a conseguir este emprego")).toBe(true);
+    expect(isSuspiciousProfileHeadline("Gabriel Andrade e mais 2 pessoas")).toBe(true);
+    expect(isSuspiciousProfileHeadline("Eduardo Sabino e mais 1.078 pessoas")).toBe(true);
+    expect(isSuspiciousProfileHeadline("Eduardo Sabino e mais 1,078 pessoas")).toBe(true);
+    expect(isSuspiciousProfileHeadline("2 mutual connections")).toBe(true);
     expect(isSuspiciousProfileHeadline("SRE Pleno (SP16101308)")).toBe(true);
     expect(isSuspiciousProfileHeadline("1 comentário")).toBe(true);
     expect(isSuspiciousProfileHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
     expect(isSuspiciousProfileHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
     expect(isSuspiciousProfileHeadline("Backend Engineer")).toBe(false);
     expect(isLikelyExternalHeadline("me ajudou a conseguir este emprego")).toBe(true);
+    expect(isLikelyExternalHeadline("Gabriel Andrade e mais 2 pessoas")).toBe(true);
+    expect(isLikelyExternalHeadline("Eduardo Sabino e mais 1.078 pessoas")).toBe(true);
+    expect(isLikelyExternalHeadline("Eduardo Sabino e mais 1,078 pessoas")).toBe(true);
+    expect(isLikelyExternalHeadline("2 mutual connections")).toBe(true);
     expect(isLikelyExternalHeadline("SRE Pleno (SP16101308)")).toBe(true);
     expect(isLikelyExternalHeadline("A sociedade do desempenho, o ego e os adultos infantilizados no poder - Migalhas")).toBe(true);
     expect(isLikelyExternalHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
@@ -106,30 +110,49 @@ describe("getProfileFromActiveTab", () => {
     });
 
     expect(chromeApi.tabs.sendMessage).toHaveBeenCalledTimes(1);
-    expect(chromeApi.scripting.executeScript).not.toHaveBeenCalled();
   });
 
-  it("injects the content script and retries when the first message fails", async () => {
+  it("retries until the content script becomes available", async () => {
     const chromeApi = createChromeApi({
       tabs: {
         query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/teste" }]),
         sendMessage: vi
           .fn()
-          .mockRejectedValueOnce(new Error("not ready"))
-          .mockResolvedValueOnce({ headline: "Backend Engineer", experiences: [] }),
+          .mockRejectedValueOnce(new Error("Could not establish connection. Receiving end does not exist."))
+          .mockResolvedValueOnce({
+            name: "Kleiton",
+            headline: "Backend Engineer",
+            experiences: ["Criei APIs em Node.js"],
+          }),
       },
     });
+    const sleepImpl = vi.fn().mockResolvedValue(undefined);
 
-    await expect(getProfileFromActiveTab(10, chromeApi)).resolves.toEqual({
+    await expect(getProfileFromActiveTab(10, chromeApi, { sleepImpl })).resolves.toEqual({
+      name: "Kleiton",
       headline: "Backend Engineer",
-      experiences: [],
+      experiences: ["Criei APIs em Node.js"],
     });
 
-    expect(chromeApi.scripting.executeScript).toHaveBeenCalledWith({
-      target: { tabId: 10 },
-      files: ["content/script.js"],
-    });
     expect(chromeApi.tabs.sendMessage).toHaveBeenCalledTimes(2);
+    expect(sleepImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks the user to refresh the page when the content script is unavailable after retries", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/teste" }]),
+        sendMessage: vi.fn().mockRejectedValue(new Error("Could not establish connection. Receiving end does not exist.")),
+      },
+    });
+    const sleepImpl = vi.fn().mockResolvedValue(undefined);
+
+    await expect(getProfileFromActiveTab(10, chromeApi, { maxRetries: 2, sleepImpl })).rejects.toThrow(
+      "Atualize a aba do LinkedIn aberta e tente novamente.",
+    );
+
+    expect(chromeApi.tabs.sendMessage).toHaveBeenCalledTimes(3);
+    expect(sleepImpl).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -447,6 +470,7 @@ describe("exportAnalysisPdf", () => {
     expect(content).toContain("%PDF-1.4");
     expect(content).toContain("/Type /Catalog");
     expect(content).toContain("/Count 1");
+    expect(content).toContain("/Encoding /WinAnsiEncoding");
     expect(content).toContain("4B6C6569746F6E204EE36F");
     expect(link.download).toBe("kleiton-n-o-analysis.pdf");
     expect(link.href).toBe("blob:analysis-pdf");
@@ -505,6 +529,7 @@ describe("exportAnalysisPdf", () => {
     const content = await pdfBlob.text();
 
     expect(content).toContain("/Count 2");
+    expect(content).toContain("/Encoding /WinAnsiEncoding");
     expect(content).toContain("50E167696E61203220803F");
 
     vi.unstubAllGlobals();
@@ -588,12 +613,48 @@ describe("exportAnalysisPdf", () => {
       40,
       expect.any(Number),
     );
-    expect(text).toHaveBeenCalledWith("Experiencias analisadas", 40, expect.any(Number));
+    expect(text).toHaveBeenCalledWith("Experiências analisadas", 40, expect.any(Number));
     expect(text).toHaveBeenCalledWith(
       ["1. Liderou APIs e integracoes para 120 clientes."],
       40,
       expect.any(Number),
     );
+  });
+
+  it("renders all captured experiences instead of limiting the PDF to four entries", () => {
+    const text = vi.fn();
+
+    class FakePdf {
+      internal = {
+        pageSize: {
+          getHeight: () => 900,
+        },
+      };
+
+      setFontSize = vi.fn();
+      splitTextToSize = vi.fn((value: string) => [value]);
+      text = text;
+      addPage = vi.fn();
+      save = vi.fn();
+    }
+
+    exportAnalysisPdf(
+      createAnalysis(),
+      {
+        name: "Kleiton Albuquerque",
+        headline: "Backend Engineer",
+        experiences: [
+          "Experiencia 1",
+          "Experiencia 2",
+          "Experiencia 3",
+          "Experiencia 4",
+          "Experiencia 5",
+        ],
+      },
+      FakePdf,
+    );
+
+    expect(text).toHaveBeenCalledWith(["5. Experiencia 5"], 40, expect.any(Number));
   });
 
   it("normalizes decomposed unicode before writing PDF text", () => {
@@ -631,6 +692,77 @@ describe("exportAnalysisPdf", () => {
     expect(text).toHaveBeenCalledWith(["Resumo: Percepção clara com ação concreta."], 40, expect.any(Number));
   });
 
+  it("strips invisible unicode control characters before writing PDF text", () => {
+    const text = vi.fn();
+
+    class FakePdf {
+      internal = {
+        pageSize: {
+          getHeight: () => 600,
+        },
+      };
+
+      setFontSize = vi.fn();
+      splitTextToSize = vi.fn((value: string) => [value]);
+      text = text;
+      addPage = vi.fn();
+      save = vi.fn();
+    }
+
+    exportAnalysisPdf(
+      {
+        ...createAnalysis(),
+        resumo: "Percep\u202Ação clara com ação concreta.",
+      },
+      {
+        name: "Kleiton\u200B Albuquerque",
+        headline: "Sou\u200B desenvolvedor com integra\u202Ação\u202C e ação prática.",
+        experiences: [],
+      },
+      FakePdf,
+    );
+
+    expect(text).toHaveBeenCalledWith(["Perfil: Kleiton Albuquerque"], 40, expect.any(Number));
+    expect(text).toHaveBeenCalledWith(
+      ["Headline: Sou desenvolvedor com integração e ação prática."],
+      40,
+      expect.any(Number),
+    );
+    expect(text).toHaveBeenCalledWith(["Resumo: Percepção clara com ação concreta."], 40, expect.any(Number));
+  });
+
+  it("does not truncate long headline content too aggressively in the PDF", () => {
+    const text = vi.fn();
+    const splitTextToSize = vi.fn((value: string) => [value]);
+    const longHeadline = "Sou desenvolvedor de software com foco em front-end com React e Next.js, além de atuação em back-end com Node.js e Java, participando da construção de aplicações escaláveis e resilientes para diferentes produtos digitais.";
+
+    class FakePdf {
+      internal = {
+        pageSize: {
+          getHeight: () => 600,
+        },
+      };
+
+      setFontSize = vi.fn();
+      splitTextToSize = splitTextToSize;
+      text = text;
+      addPage = vi.fn();
+      save = vi.fn();
+    }
+
+    exportAnalysisPdf(
+      createAnalysis(),
+      {
+        name: "Kleiton Albuquerque",
+        headline: longHeadline,
+        experiences: [],
+      },
+      FakePdf,
+    );
+
+    expect(splitTextToSize).toHaveBeenCalledWith(`Headline: ${longHeadline}`, 515);
+  });
+
   it("truncates oversized PDF list entries to keep the layout stable", () => {
     const text = vi.fn();
 
@@ -653,7 +785,7 @@ describe("exportAnalysisPdf", () => {
       {
         name: "Kleiton Albuquerque",
         headline: "Backend Engineer",
-        experiences: ["Experiencia muito longa ".repeat(30)],
+        experiences: ["Experiencia muito longa ".repeat(90)],
       },
       FakePdf,
     );
@@ -698,7 +830,7 @@ describe("exportAnalysisPdf", () => {
       FakePdf,
     );
 
-    expect(text).not.toHaveBeenCalledWith("Experiencias analisadas", 40, expect.any(Number));
+    expect(text).not.toHaveBeenCalledWith("Experiências analisadas", 40, expect.any(Number));
     expect(text).not.toHaveBeenCalledWith("Pontos fortes", 40, expect.any(Number));
   });
 });

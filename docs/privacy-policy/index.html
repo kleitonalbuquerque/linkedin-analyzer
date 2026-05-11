@@ -161,6 +161,15 @@
             resumo e sugestões de melhoria, e pode ser exportado pelo usuário em
             PDF.
           </p>
+          <ul>
+            <li>Análise local baseada em regras no backend do projeto</li>
+            <li>Análise com modelo de linguagem da Groq quando habilitada</li>
+          </ul>
+          <p>
+            Em ambos os casos, a extensão não baixa nem executa código remoto
+            na máquina do usuário. O backend retorna apenas dados estruturados
+            para exibição do resultado.
+          </p>
         </section>
 
         <section>
@@ -170,14 +179,22 @@
             terceiros para publicidade, perfilização comercial ou qualquer
             finalidade não relacionada ao funcionamento da extensão.
           </p>
+          <p>
+            Quando a análise com LLM estiver habilitada, o texto enviado para
+            análise poderá ser processado pela infraestrutura da Groq. A
+            hospedagem do backend pode utilizar infraestrutura em nuvem
+            compatível com a operação do serviço, como Render.
+          </p>
         </section>
 
         <section>
           <h2>5. Armazenamento e retenção</h2>
           <p>
-            Os dados são utilizados para gerar a resposta da análise. Se houver
-            retenção técnica temporária em logs ou infraestrutura, ela deve ser
-            limitada ao mínimo necessário para operação e diagnóstico do
+            Os dados são utilizados para gerar a resposta da análise e não são
+            gravados em banco de dados próprio pela extensão. Se houver
+            retenção técnica temporária em logs de aplicação, provedor de
+            hospedagem ou provedor de inferência, ela deve ser limitada ao
+            mínimo necessário para operação, segurança e diagnóstico do
             serviço.
           </p>
         </section>
@@ -202,13 +219,18 @@
         <section>
           <h2>8. Contato</h2>
           <p>
-            Para dúvidas sobre privacidade ou tratamento de dados, utilize o
-            canal de contato informado na página oficial do projeto ou na
-            publicação da extensão.
+            Para dúvidas sobre privacidade ou tratamento de dados, abra uma
+            solicitação em
+            <a
+              href="https://github.com/kleitonalbuquerque/linkedin-analyzer/issues"
+              rel="noreferrer"
+              target="_blank"
+              >GitHub Issues</a
+            >.
           </p>
         </section>
 
-        <p class="footer">Última atualização: 24/03/2026.</p>
+        <p class="footer">Última atualização: 16/04/2026.</p>
       </article>
     </main>
   </body>

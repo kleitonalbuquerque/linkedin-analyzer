@@ -39,6 +39,27 @@
   line-height: 1.5;
 }
 
+.disclosure-copy,
+.privacy-copy {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.disclosure-copy {
+  color: #134e4a;
+  background: rgba(209, 250, 229, 0.75);
+  border: 1px solid rgba(15, 118, 110, 0.14);
+}
+
+.privacy-copy {
+  color: #475569;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
 .actions-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

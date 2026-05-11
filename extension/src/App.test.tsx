@@ -48,6 +48,11 @@ describe("App", () => {
 
     render(<App />);
 
+    expect(
+      screen.getByText(/a extensao envia apenas nome, headline e experiencias visiveis/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/sem essa acao, nenhum dado do perfil e enviado/i)).toBeInTheDocument();
+
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Analisar perfil" }));
 

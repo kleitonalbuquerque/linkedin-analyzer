@@ -7,7 +7,7 @@ Esta pasta contem a extensao Chrome do projeto LinkedIn Analyzer.
 Existem duas variantes de manifesto em `public/`:
 
 - `manifest.dev.json`: usada para desenvolvimento local, com permissao para `http://localhost:3000/*`
-- `manifest.store.json`: usada para publicacao, com permissoes apenas para LinkedIn e Render
+- `manifest.store.json`: usada para publicacao, sem `activeTab` ou `scripting` e com CSP explicita para MV3
 
 O arquivo `public/manifest.json` e sincronizado automaticamente pelos scripts do pacote antes de iniciar o Vite ou gerar build.
 
@@ -21,6 +21,8 @@ O arquivo `public/manifest.json` e sincronizado automaticamente pelos scripts do
 - `npm run assets:store`: gera screenshots e blocos promocionais em `store-assets/`
 - `npm run manifest:dev`: copia `manifest.dev.json` para `manifest.json`
 - `npm run manifest:store`: copia `manifest.store.json` para `manifest.json`
+- `npm run prepare:store`: remove artefatos de desenvolvimento do `dist/` antes da submissao
+- `npm run audit:store`: valida o bundle final contra padroes que costumam causar rejeicao na Chrome Web Store
 
 ## Testes do frontend
 
@@ -62,10 +64,13 @@ O script tambem salva a versao SVG de cada arte para facilitar ajustes posterior
 Para gerar o zip de publicacao por linha de comando no Windows:
 
 1. execute `npm run build:store`
-2. execute `powershell -Command "Compress-Archive -Path '.\\dist\\*' -DestinationPath '.\\linkedin-analyzer-extension.zip' -Force"`
+2. confirme que o build terminou com a auditoria `audit:store`
+3. execute `powershell -Command "Compress-Archive -Path '.\\dist\\*' -DestinationPath '.\\linkedin-analyzer-extension.zip' -Force"`
 
 O arquivo final sera criado em `extension/linkedin-analyzer-extension.zip` e sera sobrescrito localmente a cada novo empacotamento.
 
 Esse comando compacta os arquivos dentro de `dist/`, nao a pasta `dist/` em si. Isso garante que `manifest.json` fique na raiz do zip, como esperado pela Chrome Web Store.
+
+O pacote de loja gerado agora remove automaticamente `manifest.dev.json` e `manifest.store.json` do `dist/`. O zip final deve conter apenas os arquivos necessarios para execucao da extensao publicada.
 
 O zip nao deve ser versionado no git. Gere-o novamente apenas quando precisar subir uma nova versao.

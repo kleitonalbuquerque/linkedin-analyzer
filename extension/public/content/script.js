@@ -1,5 +1,7 @@
 function normalizeText(value) {
   return String(value || "")
+    .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, " ")
+    .replaceAll(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, "")
     .normalize("NFC")
     .replaceAll(/\s+/g, " ")
     .trim();
@@ -15,7 +17,8 @@ function hasMeaningfulLetters(value) {
   return /[A-Za-zÀ-ÿ]/.test(value);
 }
 
-const MAX_EXPERIENCE_LENGTH = 280;
+const MAX_EXPERIENCE_LENGTH = 900;
+const MAX_CAPTURED_EXPERIENCES = 10;
 const HEADLINE_METADATA_TERMS = new Set([
   "live",
   "comentario",
@@ -107,6 +110,13 @@ const JOB_REFERENCE_PATTERN =
   /\(([a-z]{2,}[\d-]{3,}|[a-z]+\d{4,}|[a-z]{1,4}\d{5,})\)$/i;
 const SOCIAL_PROOF_HEADLINE_PATTERN =
   /(?:^|\s)(?:me ajudou a conseguir (?:este|esse) emprego|helped me get this job)(?:$|\s)/i;
+const SOCIAL_CONTEXT_HEADLINE_PATTERN =
+  /(?:\be mais (?:\d{1,3}(?:[.,]\d{3})+|\d+) pessoas?\b|\band (?:\d{1,3}(?:[.,]\d{3})+|\d+) other people\b|\bmutual connections?\b|\bconex(?:ao|ões|oes) em comum\b|\bfollows? you\b|\bsegue voce\b)/i;
+const EXPERIENCE_ENTRY_SELECTORS =
+  ".pvs-list__paged-list-item, .artdeco-list__item, [data-view-name*='profile-component-entity'], .pvs-entity";
+const SECTION_CONTAINER_SELECTORS =
+  "section, article, .artdeco-card, .pvs-list, .pvs-list__container, div[id]";
+const VISIBLE_TEXT_LEAF_SELECTOR = "span[aria-hidden='true']";
 
 function stripCountPrefix(value) {
   return value.replaceAll(/^\d+[\d.,k]*\s+/gi, "");
@@ -152,6 +162,10 @@ function isLikelyExternalHeadline(value) {
   }
 
   if (SOCIAL_PROOF_HEADLINE_PATTERN.test(trimmedValue)) {
+    return true;
+  }
+
+  if (SOCIAL_CONTEXT_HEADLINE_PATTERN.test(trimmedValue)) {
     return true;
   }
 
@@ -218,6 +232,7 @@ function cleanHeadline(value, name) {
           hasMeaningfulLetters(part) &&
           !isMetadataHeadline(part) &&
           !isLikelyExternalHeadline(part) &&
+          !SOCIAL_CONTEXT_HEADLINE_PATTERN.test(part) &&
           !SECONDARY_HEADLINE_METADATA_PATTERN.test(part),
       ) || ""
   );
@@ -272,49 +287,96 @@ function truncateText(value, maxLength) {
   return `${value.slice(0, maxLength - 3).trim()}...`;
 }
 
-function findSectionByHeading(pattern) {
-  const sections = Array.from(
-    document.querySelectorAll("main section, section"),
-  );
-
-  return (
-    sections.find((section) => {
-      const heading = getFirstText(["h1", "h2", "h3"], section);
-      return pattern.test(heading);
-    }) || null
+function getLeafElements(root, selector) {
+  return Array.from(root.querySelectorAll(selector)).filter(
+    (element) => !element.querySelector(selector),
   );
 }
 
+function findSectionByHeading(pattern) {
+  const headings = Array.from(
+    document.querySelectorAll("main h1, main h2, main h3, main h4, h1, h2, h3, h4"),
+  );
+
+  for (const heading of headings) {
+    if (!pattern.test(normalizeText(heading.textContent))) {
+      continue;
+    }
+
+    return heading.closest(SECTION_CONTAINER_SELECTORS) || heading.parentElement || null;
+  }
+
+  return null;
+}
+
 function findSection(idFragment, headingPattern) {
-  const byId = document
-    .querySelector(`section[id*="${idFragment}"], div[id*="${idFragment}"]`)
-    ?.closest("section");
+  const byId = document.querySelector(
+    `section[id*="${idFragment}"], article[id*="${idFragment}"], div[id*="${idFragment}"]`,
+  );
 
   if (byId) {
-    return byId;
+    return byId.closest(SECTION_CONTAINER_SELECTORS) || byId;
   }
 
   return findSectionByHeading(headingPattern);
 }
 
-function extractAboutText(section) {
+function extractAboutParagraphs(section) {
   if (!section) {
-    return "";
+    return [];
   }
 
-  const candidates = uniqueTexts(
+  return uniqueTexts(
     Array.from(
       section.querySelectorAll(
         "span[aria-hidden='true'], p, .inline-show-more-text",
       ),
     ).map((element) => normalizeText(element.textContent)),
-  );
+  )
+    .filter((text) => text.length >= 40 && !/^(sobre|about)$/i.test(text));
+}
 
+function buildHeadlineFromAbout(aboutParagraphs, name) {
+  const normalized = normalizeText(aboutParagraphs.join(" "));
+
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized !== name && hasMeaningfulLetters(normalized) ? normalized : "";
+}
+
+function getLeafExperienceElements(section) {
+  return getLeafElements(section, EXPERIENCE_ENTRY_SELECTORS);
+}
+
+function getLeafExperienceListItems(section) {
+  return getLeafElements(section, "li");
+}
+
+function isMeaningfulExperienceFragment(text) {
   return (
-    candidates.find(
-      (text) => text.length >= 40 && !/^(sobre|about)$/i.test(text),
-    ) || ""
+    text.length >= 2 &&
+    !/^(experi[eê]ncia|experience)$/i.test(text) &&
+    !/^(tempo integral|full-time|part-time|integral|meio periodo)$/i.test(text)
   );
+}
+
+function extractExperienceText(element) {
+  const visibleLeafFragments = uniqueTexts(
+    getLeafElements(element, VISIBLE_TEXT_LEAF_SELECTOR).map((node) =>
+      normalizeText(node.textContent),
+    ),
+  ).filter(isMeaningfulExperienceFragment);
+
+  if (visibleLeafFragments.length) {
+    return truncateText(
+      visibleLeafFragments.join(" | "),
+      MAX_EXPERIENCE_LENGTH,
+    );
+  }
+
+  return truncateText(normalizeText(element.textContent), MAX_EXPERIENCE_LENGTH);
 }
 
 function extractExperienceTexts(section) {
@@ -322,15 +384,28 @@ function extractExperienceTexts(section) {
     return [];
   }
 
+  const leafListItems = getLeafExperienceListItems(section);
+  const leafExperienceElements = getLeafExperienceElements(section);
+  const granularListItemElements = leafListItems.flatMap((item) => {
+    const nestedExperienceElements = getLeafExperienceElements(item);
+
+    return nestedExperienceElements.length ? nestedExperienceElements : [item];
+  });
+  const sourceElements = granularListItemElements.length
+    ? granularListItemElements
+    : leafExperienceElements.length
+      ? leafExperienceElements
+      : Array.from(section.querySelectorAll(EXPERIENCE_ENTRY_SELECTORS));
+
   return uniqueTexts(
-    Array.from(section.querySelectorAll("li"))
-      .map((element) => normalizeText(element.textContent))
+    sourceElements
+      .map((element) => extractExperienceText(element))
       .filter((text) => text.length >= 20)
       .filter(
         (text) => !/seguidores|followers|conexoes|connections/i.test(text),
       )
-      .map((text) => truncateText(text, MAX_EXPERIENCE_LENGTH)),
-  ).slice(0, 6);
+      .filter((text) => !/^(experi[eê]ncia|experience)$/i.test(text)),
+  ).slice(0, MAX_CAPTURED_EXPERIENCES);
 }
 
 function getProfileData() {
@@ -339,6 +414,12 @@ function getProfileData() {
     getFirstText(["h1", ".pv-text-details__left-panel h1"], topCard) ||
     getFirstText(["main h1", "h1"]) ||
     extractNameFromTitle();
+  const aboutSection = findSection("about", /^(sobre|about)$/i);
+  const experienceSection = findSection(
+    "experience",
+    /experi[eê]ncia|experience/i,
+  );
+  const aboutParagraphs = extractAboutParagraphs(aboutSection);
   const headlineCandidates = [
     getFirstText(
       [
@@ -358,19 +439,15 @@ function getProfileData() {
       .filter(Boolean),
     extractHeadlineFromTitle(name),
   ];
-  const headline =
+  const extractedHeadline =
     headlineCandidates
       .map((candidate) => cleanHeadline(candidate, name))
       .find(Boolean) || "";
-  const aboutSection = findSection("about", /^(sobre|about)$/i);
-  const experienceSection = findSection(
-    "experience",
-    /experi[eê]ncia|experience/i,
+  const headline = buildHeadlineFromAbout(aboutParagraphs, name) || extractedHeadline;
+  const experiences = uniqueTexts(extractExperienceTexts(experienceSection)).slice(
+    0,
+    MAX_CAPTURED_EXPERIENCES,
   );
-  const experiences = uniqueTexts([
-    truncateText(extractAboutText(aboutSection), MAX_EXPERIENCE_LENGTH),
-    ...extractExperienceTexts(experienceSection),
-  ]).slice(0, 6);
 
   return { name, headline, experiences };
 }

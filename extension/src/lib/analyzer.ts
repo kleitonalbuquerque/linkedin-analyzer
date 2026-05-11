@@ -32,12 +32,6 @@ export type ChromeApi = {
     query(queryInfo: chrome.tabs.QueryInfo): Promise<BrowserTab[]>;
     sendMessage(tabId: number, message: typeof PROFILE_MESSAGE): Promise<LinkedInProfile>;
   };
-  scripting: {
-    executeScript(injection: {
-      target: { tabId: number };
-      files: string[];
-    }): Promise<unknown>;
-  };
 };
 
 type FetchImpl = typeof fetch;
@@ -66,8 +60,14 @@ type PdfTextOperation = {
 
 const PDF_MAX_SECTION_ITEMS = 4;
 const PDF_MAX_TEXT_LENGTH = 260;
+const PDF_MAX_HEADLINE_LENGTH = 1600;
+const PDF_MAX_SUMMARY_LENGTH = 600;
+const PDF_MAX_EXPERIENCE_TEXT_LENGTH = 1400;
 const PDF_A4_WIDTH = 595.28;
 const PDF_A4_HEIGHT = 841.89;
+const PDF_TEXT_WIDTH_FACTOR = 0.52;
+const PDF_LINE_HEIGHT_OFFSET = 2;
+const INVISIBLE_FORMAT_CHARACTER_PATTERN = /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g;
 const PDF_WIN_ANSI_SPECIAL_CHARS = new Map<number, number>([
   [8364, 128],
   [8218, 130],
@@ -160,6 +160,8 @@ const EXTERNAL_HEADLINE_SOURCE_TERMS = [
 const EDITORIAL_HEADLINE_PREFIXES = ["a ", "o ", "as ", "os ", "como ", "por que ", "porque ", "why ", "how ", "the "];
 const JOB_REFERENCE_PATTERN = /\(([a-z]{2,}[\d-]{3,}|[a-z]+\d{4,}|[a-z]{1,4}\d{5,})\)$/i;
 const SOCIAL_PROOF_HEADLINE_PATTERN = /(?:^|\s)(?:me ajudou a conseguir (?:este|esse) emprego|helped me get this job)(?:$|\s)/i;
+const SOCIAL_CONTEXT_HEADLINE_PATTERN =
+  /(?:\be mais (?:\d{1,3}(?:[.,]\d{3})+|\d+) pessoas?\b|\band (?:\d{1,3}(?:[.,]\d{3})+|\d+) other people\b|\bmutual connections?\b|\bconex(?:ao|ões|oes) em comum\b|\bfollows? you\b|\bsegue voce\b)/i;
 
 export class BrowserPdfDocument implements PdfDocument {
   internal = {
@@ -257,7 +259,7 @@ export class BrowserPdfDocument implements PdfDocument {
   }
 
   private estimateTextWidth(text: string) {
-    return text.length * this.fontSize * 0.52;
+    return text.length * this.fontSize * PDF_TEXT_WIDTH_FACTOR;
   }
 
   private breakLongWord(word: string, maxWidth: number) {
@@ -265,7 +267,7 @@ export class BrowserPdfDocument implements PdfDocument {
       return word;
     }
 
-    const approximateChars = Math.max(1, Math.floor(maxWidth / (this.fontSize * 0.52)));
+    const approximateChars = Math.max(1, Math.floor(maxWidth / (this.fontSize * PDF_TEXT_WIDTH_FACTOR)));
     const segments: string[] = [];
 
     for (let index = 0; index < word.length; index += approximateChars) {
@@ -283,7 +285,7 @@ export class BrowserPdfDocument implements PdfDocument {
     objects[0] = "";
     objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
     objects[2] = "";
-    objects[fontObjectNumber] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+    objects[fontObjectNumber] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
 
     let nextObjectNumber = fontObjectNumber + 1;
 
@@ -320,7 +322,7 @@ export class BrowserPdfDocument implements PdfDocument {
       .flatMap((operation) => operation.text.map((line, lineIndex) => this.buildTextCommand(
         line,
         operation.x,
-        operation.y - (lineIndex * (operation.fontSize + 2)),
+        operation.y + (lineIndex * (operation.fontSize + PDF_LINE_HEIGHT_OFFSET)),
         operation.fontSize,
       )))
       .join("\n");
@@ -348,6 +350,15 @@ export class BrowserPdfDocument implements PdfDocument {
 
     if ((codePoint >= 160 && codePoint <= 255) || codePoint === 10 || codePoint === 13) {
       return codePoint;
+    }
+
+    const decomposedAsciiFallback = character
+      .normalize("NFKD")
+      .replaceAll(/[\u0300-\u036f]/g, "")
+      .charCodeAt(0);
+
+    if (decomposedAsciiFallback >= 32 && decomposedAsciiFallback <= 126) {
+      return decomposedAsciiFallback;
     }
 
     return PDF_WIN_ANSI_SPECIAL_CHARS.get(codePoint) || 63;
@@ -383,10 +394,35 @@ export class BrowserPdfDocument implements PdfDocument {
 }
 
 function normalizeUnicodeText(value?: string) {
-  return String(value || "")
+  return replaceControlCharacters(String(value || ""))
+    .replaceAll(INVISIBLE_FORMAT_CHARACTER_PATTERN, "")
     .normalize("NFC")
     .replaceAll(/\s+/g, " ")
     .trim();
+}
+
+function replaceControlCharacters(value: string) {
+  return Array.from(value, (character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+
+    if (
+      codePoint <= 8
+      || codePoint === 11
+      || codePoint === 12
+      || (codePoint >= 14 && codePoint <= 31)
+      || (codePoint >= 127 && codePoint <= 159)
+    ) {
+      return " ";
+    }
+
+    return character;
+  }).join("");
+}
+
+function sleep(delayMs: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
 }
 
 function normalizeProfile(profile: LinkedInProfile): LinkedInProfile {
@@ -429,6 +465,10 @@ export function isLikelyExternalHeadline(headline?: string) {
     return true;
   }
 
+  if (SOCIAL_CONTEXT_HEADLINE_PATTERN.test(rawHeadline)) {
+    return true;
+  }
+
   if (EXTERNAL_HEADLINE_SOURCE_TERMS.some((term) => normalized.includes(term))) {
     return true;
   }
@@ -453,6 +493,7 @@ export function isSuspiciousProfileHeadline(headline?: string) {
 
   return INVALID_CAPTURE_HEADLINE_TERMS.has(normalized)
     || SOCIAL_PROOF_HEADLINE_PATTERN.test(normalized)
+    || SOCIAL_CONTEXT_HEADLINE_PATTERN.test(normalizeUnicodeText(headline))
     || isLikelyExternalHeadline(headline);
 }
 
@@ -487,19 +528,37 @@ export function formatAnalysisProvider(provider?: string) {
   return provider;
 }
 
-export async function getProfileFromActiveTab(tabId: number, chromeApi: ChromeApi = chrome) {
-  try {
-    return await chromeApi.tabs.sendMessage(tabId, PROFILE_MESSAGE);
-  } catch (error) {
-    console.warn("[LinkedIn Analyzer] Content script not ready, injecting it", error);
+function isMissingReceiverError(error: unknown) {
+  return error instanceof Error
+    && /Could not establish connection|Receiving end does not exist|The message port closed/i.test(error.message);
+}
 
-    await chromeApi.scripting.executeScript({
-      target: { tabId },
-      files: ["content/script.js"],
-    });
+export async function getProfileFromActiveTab(
+  tabId: number,
+  chromeApi: ChromeApi = chrome,
+  {
+    maxRetries = 3,
+    retryDelayMs = 150,
+    sleepImpl = sleep,
+  }: {
+    maxRetries?: number;
+    retryDelayMs?: number;
+    sleepImpl?: (delayMs: number) => Promise<unknown>;
+  } = {},
+): Promise<LinkedInProfile> {
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await chromeApi.tabs.sendMessage(tabId, PROFILE_MESSAGE);
+    } catch (error) {
+      if (!isMissingReceiverError(error) || attempt === maxRetries) {
+        throw new Error("Atualize a aba do LinkedIn aberta e tente novamente.");
+      }
 
-    return chromeApi.tabs.sendMessage(tabId, PROFILE_MESSAGE);
+      await sleepImpl(retryDelayMs);
+    }
   }
+
+  throw new Error("Atualize a aba do LinkedIn aberta e tente novamente.");
 }
 
 export function buildPdfFileName(profile: LinkedInProfile | null) {
@@ -597,14 +656,19 @@ export function exportAnalysisPdf(
     }
   };
 
-  const trimPdfText = (text: string) => text.length > PDF_MAX_TEXT_LENGTH
-    ? `${normalizeUnicodeText(text).slice(0, PDF_MAX_TEXT_LENGTH - 3).trim()}...`
-    : normalizeUnicodeText(text);
+  const trimPdfText = (text: string, maxLength = PDF_MAX_TEXT_LENGTH) => {
+    const normalizedText = normalizeUnicodeText(text);
 
-  const writeBlock = (text: string, fontSize = 12, gapAfter = 16) => {
+    return normalizedText.length > maxLength
+      ? `${normalizedText.slice(0, maxLength - 3).trim()}...`
+      : normalizedText;
+  };
+
+  const writeBlock = (text: string, fontSize = 12, gapAfter = 16, maxLength = PDF_MAX_TEXT_LENGTH) => {
     document.setFontSize(fontSize);
-    const lines = document.splitTextToSize(trimPdfText(text), maxWidth);
-    const height = lines.length * (fontSize + 2);
+    const lines = document.splitTextToSize(trimPdfText(text, maxLength), maxWidth);
+    const lineHeight = fontSize + PDF_LINE_HEIGHT_OFFSET;
+    const height = lines.length * lineHeight;
     ensureSpace(height + gapAfter);
     document.text(lines, left, cursorY);
     cursorY += height + gapAfter;
@@ -617,14 +681,19 @@ export function exportAnalysisPdf(
     cursorY += 20;
   };
 
-  const writeListSection = (title: string, items: string[]) => {
+  const writeListSection = (
+    title: string,
+    items: string[],
+    limit = PDF_MAX_SECTION_ITEMS,
+    maxLength = PDF_MAX_TEXT_LENGTH,
+  ) => {
     if (!items.length) {
       return;
     }
 
     writeSectionTitle(title);
-    items.slice(0, PDF_MAX_SECTION_ITEMS).forEach((item, index) => {
-      writeBlock(`${index + 1}. ${item}`, 12, 12);
+    items.slice(0, limit).forEach((item, index) => {
+      writeBlock(`${index + 1}. ${item}`, 12, 12, maxLength);
     });
   };
 
@@ -632,17 +701,17 @@ export function exportAnalysisPdf(
   document.text("LinkedIn Analyzer Report", left, cursorY);
   cursorY += 28;
 
-  writeBlock(`Perfil: ${profile?.name || "Nao informado"}`);
-  writeBlock(`Headline: ${profile?.headline || "Nao informado"}`);
+  writeBlock(`Perfil: ${profile?.name || "Nao informado"}`, 12, 16, 600);
+  writeBlock(`Headline: ${profile?.headline || "Nao informado"}`, 12, 16, PDF_MAX_HEADLINE_LENGTH);
 
   writeBlock(`Nivel: ${analysis.nivel}`);
   writeBlock(`Score de mercado: ${analysis.score}/100`);
   writeBlock(`Foco principal: ${analysis.foco}`);
   writeBlock(`Fonte da analise: ${formatAnalysisProvider(analysis.provider)}`);
-  writeBlock(`Benchmark: ${analysis.benchmark}`);
-  writeBlock(`Resumo: ${analysis.resumo}`);
+  writeBlock(`Benchmark: ${analysis.benchmark}`, 12, 16, PDF_MAX_SUMMARY_LENGTH);
+  writeBlock(`Resumo: ${analysis.resumo}`, 12, 16, PDF_MAX_SUMMARY_LENGTH);
 
-  writeListSection("Experiencias analisadas", profile?.experiences || []);
+  writeListSection("Experiências analisadas", profile?.experiences || [], profile?.experiences?.length || 0, PDF_MAX_EXPERIENCE_TEXT_LENGTH);
   writeListSection("Pontos fortes", analysis.pontosFortes);
   writeListSection("Pontos fracos", analysis.pontosFracos);
   writeListSection("Problemas identificados", analysis.problemas);
