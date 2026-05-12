@@ -18,7 +18,7 @@ function hasMeaningfulLetters(value) {
 }
 
 const MAX_EXPERIENCE_LENGTH = 900;
-const PROFILE_CAPTURE_VERSION = "profile-capture-v2";
+const PROFILE_CAPTURE_VERSION = "profile-capture-v3";
 const PROFILE_SECTION_HEADING_PATTERN =
   /^(sobre|about|experi[eê]ncia|experience|forma[cç][aã]o|education|compet[eê]ncias|skills|certifica[cç][oõ]es|licenses|projetos|projects)$/i;
 const HEADLINE_METADATA_TERMS = new Set([
@@ -118,6 +118,9 @@ const EXPERIENCE_ENTRY_SELECTORS =
   ".pvs-list__paged-list-item, .artdeco-list__item, [data-view-name*='profile-component-entity'], .pvs-entity";
 const SECTION_CONTAINER_SELECTORS =
   "section, article, .artdeco-card, .pvs-list, .pvs-list__container, div[id]";
+const TOP_CARD_CONTAINER_SELECTOR = ".pv-top-card, section, .artdeco-card";
+const TOP_CARD_HEADLINE_SELECTOR =
+  ".text-body-medium.break-words, .pv-text-details__left-panel .text-body-medium, .text-body-medium, .break-words";
 const VISIBLE_TEXT_LEAF_SELECTOR = "span[aria-hidden='true']";
 
 function stripCountPrefix(value) {
@@ -221,8 +224,37 @@ function getTopCard() {
   const nameElement = getProfileNameElement();
 
   if (nameElement) {
+    const name = normalizeText(nameElement.textContent);
+    const ancestors = [];
+    let currentElement = nameElement.parentElement;
+
+    while (currentElement && currentElement !== document.body) {
+      ancestors.push(currentElement);
+
+      if (currentElement.matches(TOP_CARD_CONTAINER_SELECTOR)) {
+        break;
+      }
+
+      currentElement = currentElement.parentElement;
+    }
+
     return (
-      nameElement.closest("section, div") ||
+      ancestors.find((ancestor) =>
+        Array.from(ancestor.querySelectorAll(TOP_CARD_HEADLINE_SELECTOR)).some(
+          (candidate) => {
+            const text = normalizeText(candidate.textContent);
+
+            return (
+              text &&
+              text !== name &&
+              hasMeaningfulLetters(text) &&
+              !PROFILE_SECTION_HEADING_PATTERN.test(text) &&
+              !SECONDARY_HEADLINE_METADATA_PATTERN.test(text)
+            );
+          },
+        ),
+      ) ||
+      nameElement.closest(TOP_CARD_CONTAINER_SELECTOR) ||
       nameElement.parentElement ||
       document.querySelector("main") ||
       document.body
@@ -280,13 +312,17 @@ function extractHeadlineFromTitle(name) {
     .map((segment) => normalizeText(segment))
     .filter(Boolean);
 
-  const firstRelevantSegment = segments.find(
-    (segment) => segment !== name && !/linkedin/i.test(segment),
-  );
+  const roleSegment = segments
+    .filter((segment) => segment !== name && !/linkedin/i.test(segment))
+    .map((segment) => {
+      if (segment.startsWith(`${name} - `)) {
+        return normalizeText(segment.slice(name.length + 3));
+      }
 
-  const roleSegment = firstRelevantSegment?.includes(" - ")
-    ? normalizeText(firstRelevantSegment.split(" - ").slice(1).join(" - "))
-    : firstRelevantSegment;
+      return segment;
+    })
+    .filter((segment) => segment && segment !== name)
+    .join(" | ");
 
   return roleSegment &&
     hasMeaningfulLetters(roleSegment) &&
@@ -294,6 +330,12 @@ function extractHeadlineFromTitle(name) {
     !PROFILE_SECTION_HEADING_PATTERN.test(roleSegment)
     ? roleSegment
     : "";
+}
+
+function isExperienceDetailsPage() {
+  return /\/in\/[^/]+\/details\/experience\/?/i.test(
+    document.location?.pathname || "",
+  );
 }
 
 function truncateText(value, maxLength) {
@@ -336,6 +378,14 @@ function findSection(idFragment, headingPattern) {
   }
 
   return findSectionByHeading(headingPattern);
+}
+
+function findExperienceSection() {
+  if (isExperienceDetailsPage()) {
+    return document.querySelector("main") || document.body;
+  }
+
+  return findSection("experience", /experi[eê]ncia|experience/i);
 }
 
 function getLeafExperienceElements(section) {
@@ -410,10 +460,7 @@ function getProfileData() {
     ? getFirstText(["h1", ".pv-text-details__left-panel h1"], topCard) ||
       extractNameFromTitle()
     : extractNameFromTitle();
-  const experienceSection = findSection(
-    "experience",
-    /experi[eê]ncia|experience/i,
-  );
+  const experienceSection = findExperienceSection();
   const topCardHeadlineCandidates = topCard
     ? [
         getFirstText(

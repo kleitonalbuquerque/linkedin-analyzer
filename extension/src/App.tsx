@@ -11,7 +11,7 @@ import {
 } from "./lib/analyzer";
 
 function isExpectedUserError(message: string) {
-  return /Atualize a aba|Abra um perfil|Abra a seção Todas as experiências|Não foi possível capturar|Nao foi possivel capturar|metadados da página|metadados da pagina|visualização do LinkedIn|visualizacao do LinkedIn|Payload inválido|Payload invalido/i.test(message);
+  return /Atualize a aba|Abra um perfil|Abra a seção Todas as experiências|Não foi possível capturar|Nao foi possivel capturar|Não consegui capturar a headline|Nao consegui capturar a headline|metadados da página|metadados da pagina|visualização do LinkedIn|visualizacao do LinkedIn|Payload inválido|Payload invalido/i.test(message);
 }
 
 function App() {

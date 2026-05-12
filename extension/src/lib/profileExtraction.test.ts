@@ -8,6 +8,7 @@ import {
 
 describe("extractLinkedInProfileFromDocument", () => {
   beforeEach(() => {
+    window.history.replaceState(null, "", "/");
     document.title = "";
     document.body.innerHTML = "";
   });
@@ -56,6 +57,29 @@ describe("extractLinkedInProfileFromDocument", () => {
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "Kleiton Albuquerque",
       headline: "Especialista em produto",
+      experiences: [],
+    });
+  });
+
+  it("captures headline when LinkedIn nests the name inside the top card", () => {
+    document.body.innerHTML = `
+      <main>
+        <section class="pv-top-card">
+          <div>
+            <div>
+              <h1>Kleiton Albuquerque</h1>
+            </div>
+          </div>
+          <div class="mt2">
+            <div class="text-body-medium break-words">Software Developer | Java | React | Node.js</div>
+          </div>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Developer | Java | React | Node.js",
       experiences: [],
     });
   });
@@ -183,6 +207,7 @@ describe("extractLinkedInProfileFromDocument", () => {
   });
 
   it("captures more than ten loaded experiences from the experience details page", () => {
+    window.history.replaceState(null, "", "/in/kleiton-albuquerque/details/experience/");
     document.title = "Kleiton Albuquerque - Experiência | LinkedIn";
     const experienceItems = Array.from(
       { length: 12 },
@@ -205,6 +230,34 @@ describe("extractLinkedInProfileFromDocument", () => {
     expect(result.headline).toBe("");
     expect(result.experiences).toHaveLength(12);
     expect(result.experiences?.[11]).toBe("Experiência 12 com atuação relevante em produtos digitais e APIs.");
+  });
+
+  it("uses the full details page as experience source when the experience anchor is separate", () => {
+    window.history.replaceState(null, "", "/in/kleiton-albuquerque/details/experience/");
+    document.title = "Kleiton Albuquerque - Experiência | LinkedIn";
+
+    document.body.innerHTML = `
+      <div id="experience"></div>
+      <main>
+        <h1>Experiência</h1>
+        <ul>
+          <li>Fullstack Developer com React, Java e integração backend em produto corporativo.</li>
+          <li>Analista de sistemas com Next.js, SEO técnico e APIs RESTful no setor educacional.</li>
+          <li>Software Developer com Node.js para serviços transacionais de alta disponibilidade.</li>
+          <li>Web Developer com Vue.js, PHP, WordPress e sustentação de aplicações para clientes.</li>
+        </ul>
+      </main>
+    `;
+
+    const result = extractLinkedInProfileFromDocument(document);
+
+    expect(result.name).toBe("Kleiton Albuquerque");
+    expect(result.experiences).toEqual([
+      "Fullstack Developer com React, Java e integração backend em produto corporativo.",
+      "Analista de sistemas com Next.js, SEO técnico e APIs RESTful no setor educacional.",
+      "Software Developer com Node.js para serviços transacionais de alta disponibilidade.",
+      "Web Developer com Vue.js, PHP, WordPress e sustentação de aplicações para clientes.",
+    ]);
   });
 
   it("marks the profile when LinkedIn exposes a full experience details link", () => {
@@ -276,7 +329,7 @@ describe("extractLinkedInProfileFromDocument", () => {
       <main>
         <section id="about">
           <h2>Sobre</h2>
-          <p>Sou\u200B desenvolvedor com integra\u202Ação\u202C e ação\uFEFF prática.</p>
+          <p>Sou\u0007\u200B desenvolvedor com integra\u202Ação\u202C e ação\uFEFF prática.</p>
         </section>
         <div id="profile-experience">
           <h2>Experiência</h2>
@@ -289,6 +342,21 @@ describe("extractLinkedInProfileFromDocument", () => {
       name: "",
       headline: "",
       experiences: ["Atuação com APIs críticas e observabilidade."],
+    });
+  });
+
+  it("combines pipe-separated professional title segments from LinkedIn titles", () => {
+    document.title = "Kleiton Albuquerque | Fullstack Developer | UX Especialist | LinkedIn";
+    document.body.innerHTML = `
+      <main>
+        <h1>Kleiton Albuquerque</h1>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Fullstack Developer | UX Especialist",
+      experiences: [],
     });
   });
 

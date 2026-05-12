@@ -76,7 +76,8 @@ const PDF_A4_WIDTH = 595.28;
 const PDF_A4_HEIGHT = 841.89;
 const PDF_TEXT_WIDTH_FACTOR = 0.52;
 const PDF_LINE_HEIGHT_OFFSET = 2;
-const PROFILE_CAPTURE_VERSION = "profile-capture-v2";
+const PROFILE_CAPTURE_VERSION = "profile-capture-v3";
+const PROFILE_HEADLINE_CACHE_KEY = "linkedinAnalyzerProfileHeadlineCache";
 const INVISIBLE_FORMAT_CHARACTER_PATTERN = /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g;
 const PDF_WIN_ANSI_SPECIAL_CHARS = new Map<number, number>([
   [8364, 128],
@@ -482,6 +483,65 @@ function normalizeProfile(profile: LinkedInProfile): LinkedInProfile {
   };
 }
 
+function getProfileCacheId(tabUrl: string | undefined, profile: LinkedInProfile) {
+  if (tabUrl) {
+    try {
+      const profilePath = new URL(tabUrl).pathname.match(/^\/in\/([^/]+)/i)?.[1];
+
+      if (profilePath) {
+        return profilePath.toLowerCase();
+      }
+    } catch {
+      // Ignore malformed extension tab URLs and fall back to the normalized name.
+    }
+  }
+
+  return normalizeUnicodeText(profile.name).toLowerCase();
+}
+
+function readHeadlineCache() {
+  try {
+    const parsed = JSON.parse(globalThis.localStorage?.getItem(PROFILE_HEADLINE_CACHE_KEY) || "{}") as unknown;
+
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, string>
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function getCachedProfileHeadline(tabUrl: string | undefined, profile: LinkedInProfile) {
+  const cacheId = getProfileCacheId(tabUrl, profile);
+
+  if (!cacheId) {
+    return "";
+  }
+
+  return normalizeUnicodeText(readHeadlineCache()[cacheId]);
+}
+
+function cacheProfileHeadline(tabUrl: string | undefined, profile: LinkedInProfile) {
+  const cacheId = getProfileCacheId(tabUrl, profile);
+  const headline = normalizeUnicodeText(profile.headline);
+
+  if (!cacheId || !headline) {
+    return;
+  }
+
+  try {
+    globalThis.localStorage?.setItem(
+      PROFILE_HEADLINE_CACHE_KEY,
+      JSON.stringify({
+        ...readHeadlineCache(),
+        [cacheId]: headline,
+      }),
+    );
+  } catch {
+    // localStorage can be unavailable in restricted extension contexts.
+  }
+}
+
 function normalizeCaptureHeadline(value?: string) {
   return normalizeUnicodeText(value)
     .replaceAll(/^\d+[\d.,k]*\s+/gi, "")
@@ -547,6 +607,10 @@ export function isSuspiciousProfileHeadline(headline?: string) {
 export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string) {
   if (getExtensionVersion() && profile.captureVersion !== PROFILE_CAPTURE_VERSION) {
     return "Atualize a aba do LinkedIn aberta e tente novamente. A aba ainda está usando uma versão antiga da extensão.";
+  }
+
+  if (!profile.headline) {
+    return "Não consegui capturar a headline do perfil. Atualize a página principal do perfil no LinkedIn e tente novamente.";
   }
 
   if (isSuspiciousProfileHeadline(profile.headline)) {
@@ -658,7 +722,20 @@ export async function analyzeActiveProfile({
   }
 
   const rawProfile = await getProfileFromActiveTab(tab.id, chromeApi);
-  const profile = normalizeProfile(rawProfile);
+  let profile = normalizeProfile(rawProfile);
+
+  if (!profile.headline) {
+    const cachedHeadline = getCachedProfileHeadline(tab.url, profile);
+
+    if (cachedHeadline) {
+      profile = {
+        ...profile,
+        headline: cachedHeadline,
+      };
+    }
+  }
+
+  cacheProfileHeadline(tab.url, profile);
 
   if (!hasProfileData(profile)) {
     console.warn("[LinkedIn Analyzer] Profile data was empty", profile);

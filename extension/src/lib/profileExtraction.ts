@@ -90,6 +90,8 @@ const SOCIAL_CONTEXT_HEADLINE_PATTERN =
   /(?:\be mais (?:\d{1,3}(?:[.,]\d{3})+|\d+) pessoas?\b|\band (?:\d{1,3}(?:[.,]\d{3})+|\d+) other people\b|\bmutual connections?\b|\bconex(?:ao|ões|oes) em comum\b|\bfollows? you\b|\bsegue voce\b)/i;
 const EXPERIENCE_ENTRY_SELECTORS = ".pvs-list__paged-list-item, .artdeco-list__item, [data-view-name*='profile-component-entity'], .pvs-entity";
 const SECTION_CONTAINER_SELECTORS = "section, article, .artdeco-card, .pvs-list, .pvs-list__container, div[id]";
+const TOP_CARD_CONTAINER_SELECTOR = ".pv-top-card, section, .artdeco-card";
+const TOP_CARD_HEADLINE_SELECTOR = ".text-body-medium.break-words, .pv-text-details__left-panel .text-body-medium, .text-body-medium, .break-words";
 const VISIBLE_TEXT_LEAF_SELECTOR = "span[aria-hidden='true']";
 
 function stripCountPrefix(value: string) {
@@ -205,7 +207,32 @@ function getTopCard(root: Document) {
   const nameElement = getProfileNameElement(root);
 
   if (nameElement) {
-    return nameElement.closest("section, div") || nameElement.parentElement || root.querySelector("main") || root.body;
+    const name = normalizeText(nameElement.textContent);
+    const ancestors: HTMLElement[] = [];
+    let currentElement = nameElement.parentElement;
+
+    while (currentElement && currentElement !== root.body) {
+      ancestors.push(currentElement);
+
+      if (currentElement.matches(TOP_CARD_CONTAINER_SELECTOR)) {
+        break;
+      }
+
+      currentElement = currentElement.parentElement;
+    }
+
+    return ancestors.find((ancestor) =>
+      Array.from(ancestor.querySelectorAll(TOP_CARD_HEADLINE_SELECTOR))
+        .some((candidate) => {
+          const text = normalizeText(candidate.textContent);
+
+          return text
+            && text !== name
+            && hasMeaningfulLetters(text)
+            && !PROFILE_SECTION_HEADING_PATTERN.test(text)
+            && !SECONDARY_HEADLINE_METADATA_PATTERN.test(text);
+        })
+    ) || nameElement.closest(TOP_CARD_CONTAINER_SELECTOR) || nameElement.parentElement || root.querySelector("main") || root.body;
   }
 
   return null;
@@ -253,14 +280,17 @@ function extractHeadlineFromTitle(root: Document, name: string) {
     .split(/\|/)
     .map((segment) => normalizeText(segment))
     .filter(Boolean);
+  const roleSegment = segments
+    .filter((segment) => segment !== name && !/linkedin/i.test(segment))
+    .map((segment) => {
+      if (segment.startsWith(`${name} - `)) {
+        return normalizeText(segment.slice(name.length + 3));
+      }
 
-  const firstRelevantSegment = segments.find(
-    (segment) => segment !== name && !/linkedin/i.test(segment),
-  );
-
-  const roleSegment = firstRelevantSegment?.includes(" - ")
-    ? normalizeText(firstRelevantSegment.split(" - ").slice(1).join(" - "))
-    : firstRelevantSegment;
+      return segment;
+    })
+    .filter((segment) => segment && segment !== name)
+    .join(" | ");
 
   return roleSegment
     && hasMeaningfulLetters(roleSegment)
@@ -268,6 +298,10 @@ function extractHeadlineFromTitle(root: Document, name: string) {
     && !PROFILE_SECTION_HEADING_PATTERN.test(roleSegment)
     ? roleSegment
     : "";
+}
+
+function isExperienceDetailsPage(root: Document) {
+  return /\/in\/[^/]+\/details\/experience\/?/i.test(root.location?.pathname || "");
 }
 
 function truncateText(value: string, maxLength: number) {
@@ -305,6 +339,14 @@ function findSection(root: Document, idFragment: string, headingPattern: RegExp)
   }
 
   return findSectionByHeading(root, headingPattern);
+}
+
+function findExperienceSection(root: Document) {
+  if (isExperienceDetailsPage(root)) {
+    return root.querySelector("main") || root.body;
+  }
+
+  return findSection(root, "experience", /experi[eê]ncia|experience/i);
 }
 
 function getLeafExperienceElements(section: Element) {
@@ -370,7 +412,7 @@ export function extractLinkedInProfileFromDocument(root: Document): ExtractedLin
   const name = topCard
     ? getFirstText(topCard, ["h1", ".pv-text-details__left-panel h1"]) || extractNameFromTitle(root)
     : extractNameFromTitle(root);
-  const experienceSection = findSection(root, "experience", /experi[eê]ncia|experience/i);
+  const experienceSection = findExperienceSection(root);
   const topCardHeadlineCandidates = topCard
     ? [
         getFirstText(topCard, [

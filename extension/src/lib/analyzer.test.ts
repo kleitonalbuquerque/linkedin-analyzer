@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   analyzeActiveProfile,
@@ -17,6 +17,11 @@ import {
   type AnalysisResult,
   type ChromeApi,
 } from "./analyzer";
+
+afterEach(() => {
+  localStorage.clear();
+  vi.unstubAllGlobals();
+});
 
 function createChromeApi(overrides: Partial<ChromeApi> = {}): ChromeApi {
   return {
@@ -92,6 +97,12 @@ describe("analyzer helpers", () => {
         "https://www.linkedin.com/in/teste/",
       ),
     ).toBeNull();
+    expect(
+      getProfileCaptureError(
+        { name: "Kleiton", headline: "", experiences: ["Projeto resumido"] },
+        "https://www.linkedin.com/in/teste/",
+      ),
+    ).toContain("headline");
     expect(
       getProfileCaptureError(
         {
@@ -310,6 +321,101 @@ describe("analyzeActiveProfile", () => {
     });
 
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow("Não foi possível capturar os dados do perfil exibido.");
+  });
+
+  it("fails when the captured headline is empty", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/teste" }]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "",
+          experiences: ["Projeto com React e Node.js"],
+        }),
+      },
+    });
+
+    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow("Não consegui capturar a headline do perfil.");
+  });
+
+  it("falls back to the profile name for headline cache lookup when the profile slug is missing", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/" }]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "",
+          experiences: ["Projeto com React e Node.js"],
+        }),
+      },
+    });
+
+    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow("Não consegui capturar a headline do perfil.");
+  });
+
+  it("handles invalid cached headline data as an empty cache", async () => {
+    localStorage.setItem("linkedinAnalyzerProfileHeadlineCache", "{invalid-json");
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/" }]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "",
+          headline: "",
+          experiences: ["Projeto com React e Node.js"],
+        }),
+      },
+    });
+
+    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow("Não consegui capturar a headline do perfil.");
+  });
+
+  it("uses a cached headline when analyzing the full experience details page", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(createAnalysis()),
+    });
+
+    await analyzeActiveProfile({
+      chromeApi: createChromeApi(),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com",
+    });
+
+    const detailsChromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([
+          { id: 10, url: "https://www.linkedin.com/in/teste/details/experience/" },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "",
+          experiences: [
+            "Experiência 1 com React e Java em produto corporativo.",
+            "Experiência 2 com Next.js e SEO técnico no setor educacional.",
+            "Experiência 3 com Node.js em serviços transacionais.",
+          ],
+        }),
+      },
+    });
+
+    await analyzeActiveProfile({
+      chromeApi: detailsChromeApi,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com",
+    });
+
+    const [, secondCallOptions] = fetchImpl.mock.calls[1];
+    const sentProfile = JSON.parse(String(secondCallOptions?.body));
+
+    expect(sentProfile).toEqual({
+      name: "Kleiton",
+      headline: "Backend Engineer",
+      experiences: [
+        "Experiência 1 com React e Java em produto corporativo.",
+        "Experiência 2 com Next.js e SEO técnico no setor educacional.",
+        "Experiência 3 com Node.js em serviços transacionais.",
+      ],
+    });
   });
 
   it("fails when the captured headline looks like page metadata", async () => {
