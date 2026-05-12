@@ -610,7 +610,7 @@ export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string
   }
 
   if (!profile.headline) {
-    return "Não consegui capturar a headline do perfil. Atualize a página principal do perfil no LinkedIn e tente novamente.";
+    return "Não consegui capturar a headline do perfil. Analise a página principal do perfil uma vez, depois volte para Todas as experiências e tente novamente.";
   }
 
   if (isSuspiciousProfileHeadline(profile.headline)) {
@@ -633,7 +633,7 @@ export function getProfileCaptureNotice(profile: LinkedInProfile, tabUrl?: strin
   const isExperienceDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/experience");
 
   if (profile.hasMoreExperienceDetails && !isExperienceDetailsPage && experiencesCount <= 2) {
-    return "Para capturar todas as experiências, abra a seção Todas as experiências do LinkedIn e mantenha essa aba ativa antes de analisar.";
+    return "Headline capturada. Para incluir a lista completa, abra a seção Todas as experiências do LinkedIn e execute a análise novamente.";
   }
 
   return null;
