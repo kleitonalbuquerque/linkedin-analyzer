@@ -5,6 +5,7 @@ import {
   analyzeActiveProfile,
   exportAnalysisPdf,
   formatAnalysisProvider,
+  reportClientError,
   type AnalysisResult,
   type LinkedInProfile,
 } from "./lib/analyzer";
@@ -33,11 +34,15 @@ function App() {
         ? caughtError.message
         : "Erro desconhecido ao analisar o perfil.";
 
-      if (isExpectedUserError(message)) {
-        console.info("[LinkedIn Analyzer] Analysis blocked", message);
-      } else {
-        console.error("[LinkedIn Analyzer] Analysis failed", caughtError);
-      }
+      const expected = isExpectedUserError(message);
+
+      console.error("[LinkedIn Analyzer] Analysis failed", { expected, message, caughtError });
+      void reportClientError({
+        context: "analyze-profile",
+        message,
+        expected,
+        stack: caughtError instanceof Error ? caughtError.stack : undefined,
+      });
 
       setError(`Falha ao analisar o perfil: ${message}`);
     } finally {

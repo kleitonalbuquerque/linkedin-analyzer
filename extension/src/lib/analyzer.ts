@@ -37,6 +37,13 @@ export type ChromeApi = {
 
 type FetchImpl = typeof fetch;
 
+export type ClientErrorReport = {
+  message: string;
+  context: string;
+  expected: boolean;
+  stack?: string;
+};
+
 type PdfDocument = {
   internal: {
     pageSize: {
@@ -424,6 +431,41 @@ function sleep(delayMs: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, delayMs);
   });
+}
+
+function getExtensionVersion() {
+  return globalThis.chrome?.runtime?.getManifest?.().version || "";
+}
+
+export async function reportClientError(
+  report: ClientErrorReport,
+  {
+    fetchImpl = fetch,
+    apiBaseUrl = API_BASE_URL,
+  }: {
+    fetchImpl?: FetchImpl;
+    apiBaseUrl?: string;
+  } = {},
+) {
+  try {
+    await fetchImpl(`${apiBaseUrl}/client-errors`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        source: "extension-popup",
+        context: report.context,
+        message: report.message,
+        expected: report.expected,
+        stack: report.stack,
+        extensionVersion: getExtensionVersion(),
+        userAgent: globalThis.navigator?.userAgent || "",
+      }),
+    });
+  } catch (error) {
+    console.warn("[LinkedIn Analyzer] Failed to report client error", error);
+  }
 }
 
 function normalizeProfile(profile: LinkedInProfile): LinkedInProfile {

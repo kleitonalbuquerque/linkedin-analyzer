@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import analyzeRoute from "./routes/analyze.js";
+import clientErrorsRoute from "./routes/clientErrors.js";
 
 const PORT = process.env.PORT || 3000;
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -50,6 +51,7 @@ export function createApp() {
   });
 
   app.use("/analyze", analyzeRoute);
+  app.use("/client-errors", clientErrorsRoute);
 
   app.use((_req, res) => {
     res.status(404).json({

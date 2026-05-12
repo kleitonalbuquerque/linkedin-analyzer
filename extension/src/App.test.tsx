@@ -2,18 +2,20 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { analyzeActiveProfile, exportAnalysisPdf, formatAnalysisProvider } = vi.hoisted(() => ({
+const { analyzeActiveProfile, exportAnalysisPdf, formatAnalysisProvider, reportClientError } = vi.hoisted(() => ({
   analyzeActiveProfile: vi.fn(),
   exportAnalysisPdf: vi.fn(),
   formatAnalysisProvider: vi.fn((provider: string) =>
     provider === "local-fallback" ? "Análise local" : provider,
   ),
+  reportClientError: vi.fn(),
 }));
 
 vi.mock("./lib/analyzer", () => ({
   analyzeActiveProfile,
   exportAnalysisPdf,
   formatAnalysisProvider,
+  reportClientError,
 }));
 
 import App from "./App";
@@ -23,6 +25,7 @@ describe("App", () => {
     analyzeActiveProfile.mockReset();
     exportAnalysisPdf.mockReset();
     formatAnalysisProvider.mockClear();
+    reportClientError.mockReset();
   });
 
   it("renders the analysis result and exports the PDF", async () => {
@@ -120,6 +123,12 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Analisar perfil" }));
 
     expect(await screen.findByText("Falha ao analisar o perfil: Payload inválido")).toBeInTheDocument();
+    expect(reportClientError).toHaveBeenCalledWith({
+      context: "analyze-profile",
+      message: "Payload inválido",
+      expected: true,
+      stack: expect.any(String),
+    });
   });
 
   it("falls back to the unknown error message for non-Error failures", async () => {
@@ -133,5 +142,11 @@ describe("App", () => {
     expect(
       await screen.findByText("Falha ao analisar o perfil: Erro desconhecido ao analisar o perfil."),
     ).toBeInTheDocument();
+    expect(reportClientError).toHaveBeenCalledWith({
+      context: "analyze-profile",
+      message: "Erro desconhecido ao analisar o perfil.",
+      expected: false,
+      stack: undefined,
+    });
   });
 });

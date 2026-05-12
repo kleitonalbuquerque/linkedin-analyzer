@@ -12,6 +12,7 @@ import {
   isLikelyExternalHeadline,
   isSuspiciousProfileHeadline,
   isLinkedInProfileUrl,
+  reportClientError,
   type AnalysisResult,
   type ChromeApi,
 } from "./analyzer";
@@ -428,6 +429,56 @@ describe("analyzeActiveProfile", () => {
     await expect(
       analyzeActiveProfile({ chromeApi, fetchImpl: fetchImpl as unknown as typeof fetch }),
     ).rejects.toThrow("Backend returned 503");
+  });
+});
+
+describe("reportClientError", () => {
+  it("sends sanitized extension error context to the backend", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
+
+    await reportClientError(
+      {
+        context: "analyze-profile",
+        message: "Falha no popup",
+        expected: false,
+        stack: "Error: boom",
+      },
+      {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        apiBaseUrl: "https://api.example.com",
+      },
+    );
+
+    expect(fetchImpl).toHaveBeenCalledWith("https://api.example.com/client-errors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: expect.stringContaining('"message":"Falha no popup"'),
+    });
+  });
+
+  it("does not throw when client error reporting fails", async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new Error("offline"));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(
+      reportClientError(
+        {
+          context: "analyze-profile",
+          message: "Falha no popup",
+          expected: true,
+        },
+        {
+          fetchImpl: fetchImpl as unknown as typeof fetch,
+          apiBaseUrl: "https://api.example.com",
+        },
+      ),
+    ).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[LinkedIn Analyzer] Failed to report client error",
+      expect.any(Error),
+    );
+
+    warnSpy.mockRestore();
   });
 });
 
