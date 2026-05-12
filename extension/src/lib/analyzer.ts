@@ -20,6 +20,7 @@ export type LinkedInProfile = {
   name?: string;
   headline?: string;
   experiences?: string[];
+  hasMoreExperienceDetails?: boolean;
 };
 
 type BrowserTab = {
@@ -432,6 +433,7 @@ function normalizeProfile(profile: LinkedInProfile): LinkedInProfile {
     experiences: Array.isArray(profile.experiences)
       ? profile.experiences.map((experience) => normalizeUnicodeText(experience)).filter(Boolean)
       : [],
+    ...(profile.hasMoreExperienceDetails ? { hasMoreExperienceDetails: true } : {}),
   };
 }
 
@@ -499,14 +501,19 @@ export function isSuspiciousProfileHeadline(headline?: string) {
 
 export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string) {
   if (isSuspiciousProfileHeadline(profile.headline)) {
-    return "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil. Feche modais e analise a pagina principal do perfil.";
+    return "O LinkedIn parece ter capturado metadados da página ou um título externo em vez da headline do perfil. Feche modais e analise a página principal do perfil.";
   }
 
   const experiencesCount = profile.experiences?.length || 0;
   const isDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/");
+  const isExperienceDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/experience");
 
-  if (isDetailsPage && experiencesCount < 2) {
-    return "A captura do perfil ficou incompleta nesta visualizacao do LinkedIn. Volte para a pagina principal do perfil antes de analisar.";
+  if (profile.hasMoreExperienceDetails && !isExperienceDetailsPage && experiencesCount <= 2) {
+    return "Abra a seção Todas as experiências do LinkedIn e execute a análise nessa tela para capturar a lista completa.";
+  }
+
+  if (isDetailsPage && !isExperienceDetailsPage && experiencesCount < 2) {
+    return "A captura do perfil ficou incompleta nesta visualização do LinkedIn. Volte para a página principal do perfil antes de analisar.";
   }
 
   return null;
@@ -514,11 +521,11 @@ export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string
 
 export function formatAnalysisProvider(provider?: string) {
   if (!provider) {
-    return "Nao informado";
+    return "Não informado";
   }
 
   if (provider === "local-fallback") {
-    return "Analise local";
+    return "Análise local";
   }
 
   if (provider.startsWith("groq:")) {
@@ -599,7 +606,7 @@ export async function analyzeActiveProfile({
 
   if (!hasProfileData(profile)) {
     console.warn("[LinkedIn Analyzer] Profile data was empty", profile);
-    throw new Error("Nao foi possivel capturar os dados do perfil exibido.");
+    throw new Error("Não foi possível capturar os dados do perfil exibido.");
   }
 
   const profileCaptureError = getProfileCaptureError(profile, tab.url);
@@ -701,13 +708,13 @@ export function exportAnalysisPdf(
   document.text("LinkedIn Analyzer Report", left, cursorY);
   cursorY += 28;
 
-  writeBlock(`Perfil: ${profile?.name || "Nao informado"}`, 12, 16, 600);
-  writeBlock(`Headline: ${profile?.headline || "Nao informado"}`, 12, 16, PDF_MAX_HEADLINE_LENGTH);
+  writeBlock(`Perfil: ${profile?.name || "Não informado"}`, 12, 16, 600);
+  writeBlock(`Headline: ${profile?.headline || "Não informado"}`, 12, 16, PDF_MAX_HEADLINE_LENGTH);
 
-  writeBlock(`Nivel: ${analysis.nivel}`);
+  writeBlock(`Nível: ${analysis.nivel}`);
   writeBlock(`Score de mercado: ${analysis.score}/100`);
   writeBlock(`Foco principal: ${analysis.foco}`);
-  writeBlock(`Fonte da analise: ${formatAnalysisProvider(analysis.provider)}`);
+  writeBlock(`Fonte da análise: ${formatAnalysisProvider(analysis.provider)}`);
   writeBlock(`Benchmark: ${analysis.benchmark}`, 12, 16, PDF_MAX_SUMMARY_LENGTH);
   writeBlock(`Resumo: ${analysis.resumo}`, 12, 16, PDF_MAX_SUMMARY_LENGTH);
 
@@ -715,7 +722,7 @@ export function exportAnalysisPdf(
   writeListSection("Pontos fortes", analysis.pontosFortes);
   writeListSection("Pontos fracos", analysis.pontosFracos);
   writeListSection("Problemas identificados", analysis.problemas);
-  writeListSection("Sugestoes prioritarias", analysis.sugestoes);
+  writeListSection("Sugestões prioritárias", analysis.sugestoes);
 
   document.save(`${buildPdfFileName(profile)}-analysis.pdf`);
 

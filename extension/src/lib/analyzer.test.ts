@@ -74,20 +74,37 @@ describe("analyzer helpers", () => {
     expect(isLikelyExternalHeadline('Por Que "Soft Skills" Não Significa Nada E O Que Usar no Lugar')).toBe(true);
     expect(isLikelyExternalHeadline("Como escalar plataformas: lições práticas para engenharia moderna")).toBe(true);
     expect(isLikelyExternalHeadline("How to scale Node.js APIs in production as a Backend Engineer")).toBe(false);
-    expect(formatAnalysisProvider("local-fallback")).toBe("Analise local");
+    expect(formatAnalysisProvider("local-fallback")).toBe("Análise local");
     expect(formatAnalysisProvider("groq:openai/gpt-oss-120b")).toContain("IA (Groq");
-    expect(formatAnalysisProvider()).toBe("Nao informado");
+    expect(formatAnalysisProvider()).toBe("Não informado");
     expect(formatAnalysisProvider("custom-provider")).toBe("custom-provider");
     expect(
       getProfileCaptureError(
         { name: "Kleiton", headline: "1 comentário", experiences: ["Projeto"] },
         "https://www.linkedin.com/in/teste/details/featured/",
       ),
-    ).toContain("capturado metadados da pagina ou um titulo externo");
+    ).toContain("capturado metadados da página ou um título externo");
     expect(
       getProfileCaptureError(
         { name: "Kleiton", headline: "Software Engineer", experiences: ["Projeto 1", "Projeto 2"] },
         "https://www.linkedin.com/in/teste/",
+      ),
+    ).toBeNull();
+    expect(
+      getProfileCaptureError(
+        {
+          name: "Kleiton",
+          headline: "Software Engineer",
+          experiences: ["Projeto resumido"],
+          hasMoreExperienceDetails: true,
+        },
+        "https://www.linkedin.com/in/teste/",
+      ),
+    ).toContain("Todas as experiências");
+    expect(
+      getProfileCaptureError(
+        { name: "Kleiton", headline: "Software Engineer", experiences: ["Projeto resumido"] },
+        "https://www.linkedin.com/in/teste/details/experience/",
       ),
     ).toBeNull();
   });
@@ -251,7 +268,7 @@ describe("analyzeActiveProfile", () => {
       },
     });
 
-    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow("Nao foi possivel capturar os dados do perfil exibido.");
+    await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow("Não foi possível capturar os dados do perfil exibido.");
   });
 
   it("fails when the captured headline looks like page metadata", async () => {
@@ -269,7 +286,7 @@ describe("analyzeActiveProfile", () => {
     });
 
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
-      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
+      "O LinkedIn parece ter capturado metadados da página ou um título externo em vez da headline do perfil.",
     );
   });
 
@@ -288,7 +305,7 @@ describe("analyzeActiveProfile", () => {
     });
 
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
-      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
+      "O LinkedIn parece ter capturado metadados da página ou um título externo em vez da headline do perfil.",
     );
   });
 
@@ -307,7 +324,7 @@ describe("analyzeActiveProfile", () => {
     });
 
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
-      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
+      "O LinkedIn parece ter capturado metadados da página ou um título externo em vez da headline do perfil.",
     );
   });
 
@@ -326,7 +343,7 @@ describe("analyzeActiveProfile", () => {
     });
 
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
-      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
+      "O LinkedIn parece ter capturado metadados da página ou um título externo em vez da headline do perfil.",
     );
   });
 
@@ -345,7 +362,7 @@ describe("analyzeActiveProfile", () => {
     });
 
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
-      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
+      "O LinkedIn parece ter capturado metadados da página ou um título externo em vez da headline do perfil.",
     );
   });
 
@@ -364,7 +381,7 @@ describe("analyzeActiveProfile", () => {
     });
 
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
-      "O LinkedIn parece ter capturado metadados da pagina ou um titulo externo em vez da headline do perfil.",
+      "O LinkedIn parece ter capturado metadados da página ou um título externo em vez da headline do perfil.",
     );
   });
 
@@ -383,7 +400,7 @@ describe("analyzeActiveProfile", () => {
     });
 
     await expect(analyzeActiveProfile({ chromeApi })).rejects.toThrow(
-      "A captura do perfil ficou incompleta nesta visualizacao do LinkedIn.",
+      "A captura do perfil ficou incompleta nesta visualização do LinkedIn.",
     );
   });
 
@@ -392,12 +409,12 @@ describe("analyzeActiveProfile", () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
-      json: vi.fn().mockResolvedValue({ message: "Payload invalido" }),
+      json: vi.fn().mockResolvedValue({ message: "Payload inválido" }),
     });
 
     await expect(
       analyzeActiveProfile({ chromeApi, fetchImpl: fetchImpl as unknown as typeof fetch }),
-    ).rejects.toThrow("Payload invalido");
+    ).rejects.toThrow("Payload inválido");
   });
 
   it("falls back to the HTTP status when the backend error payload is invalid", async () => {
@@ -609,7 +626,7 @@ describe("exportAnalysisPdf", () => {
     );
 
     expect(text).toHaveBeenCalledWith(
-      ["Fonte da analise: Analise local"],
+      ["Fonte da análise: Análise local"],
       40,
       expect.any(Number),
     );

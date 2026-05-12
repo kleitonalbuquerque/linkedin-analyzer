@@ -3,7 +3,7 @@ import { analyzeLinkedInProfile } from "../services/aiService.js";
 
 const router = express.Router();
 const MAX_TEXT_LENGTH = 600;
-const MAX_EXPERIENCES = 10;
+const MAX_EXPERIENCES = 50;
 
 function normalizeString(value) {
   return typeof value === "string"
@@ -15,7 +15,7 @@ function validateAnalyzePayload(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return {
       isValid: false,
-      error: "Payload invalido. Envie um objeto com os dados do perfil.",
+      error: "Payload inválido. Envie um objeto com os dados do perfil.",
     };
   }
 
@@ -31,7 +31,7 @@ function validateAnalyzePayload(payload) {
   if (!headline && experiences.length === 0) {
     return {
       isValid: false,
-      error: "Forneca ao menos um headline ou uma experiencia do perfil.",
+      error: "Forneça ao menos um headline ou uma experiência do perfil.",
     };
   }
 
@@ -70,7 +70,7 @@ router.post("/", async (req, res) => {
   } catch (error) {
     console.error("[LinkedIn Analyzer API] Analyze request failed", error);
     res.status(500).json({
-      message: "Falha ao processar a analise do perfil.",
+      message: "Falha ao processar a análise do perfil.",
     });
   }
 });

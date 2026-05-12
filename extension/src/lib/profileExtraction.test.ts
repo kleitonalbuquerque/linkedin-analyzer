@@ -37,7 +37,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "Kleiton Albuquerque",
-      headline: "Engenheiro de software com foco em APIs, arquitetura backend e melhoria de performance.",
+      headline: "Backend Engineer | Node.js | APIs",
       experiences: [
         "Senior Backend Engineer na Empresa X liderando APIs e integracoes para 120 clientes.",
         "Software Engineer na Empresa Y com foco em Node.js, SQL e observabilidade.",
@@ -60,7 +60,7 @@ describe("extractLinkedInProfileFromDocument", () => {
     });
   });
 
-  it("uses the full Sobre content as headline when no dedicated headline is available", () => {
+  it("does not use the full Sobre content as headline when no dedicated headline is available", () => {
     document.body.innerHTML = `
       <main>
         <section>
@@ -84,7 +84,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "Kleiton Albuquerque",
-      headline: "Sou desenvolvedor de software com foco em front-end com React e Next.js, além de atuação em back-end com Node.js e Java, participando da construção de aplicações escaláveis. Ao longo da minha trajetória, venho atuando em produtos digitais.",
+      headline: "",
       experiences: [
         "Analista de sistemas com foco em desenvolvimento e manutenção de aplicações web de grande escala.",
       ],
@@ -139,7 +139,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "",
-      headline: "Sou desenvolvedor full-stack com foco em produtos digitais e arquitetura escalavel.",
+      headline: "",
       experiences: [
         "Frontend Engineer na Empresa X com foco em React, Next.js e acessibilidade.",
         "Backend Engineer na Empresa X com foco em Node.js, APIs e observabilidade.",
@@ -171,7 +171,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "",
-      headline: "Sou desenvolvedor full-stack com foco em produtos digitais e arquitetura escalavel.",
+      headline: "",
       experiences: [
         "Experiencia 1 com foco em React e acessibilidade.",
         "Experiencia 2 com foco em Next.js e SSR.",
@@ -179,6 +179,54 @@ describe("extractLinkedInProfileFromDocument", () => {
         "Experiencia 4 com foco em Java e Spring Boot.",
         "Experiencia 5 com foco em Docker e CI/CD.",
       ],
+    });
+  });
+
+  it("captures more than ten loaded experiences from the experience details page", () => {
+    document.title = "Kleiton Albuquerque - Experiência | LinkedIn";
+    const experienceItems = Array.from(
+      { length: 12 },
+      (_, index) => `<li>Experiência ${index + 1} com atuação relevante em produtos digitais e APIs.</li>`,
+    ).join("");
+
+    document.body.innerHTML = `
+      <main>
+        <h1>Experiência</h1>
+        <section id="experience">
+          <h2>Experiência</h2>
+          <ul>${experienceItems}</ul>
+        </section>
+      </main>
+    `;
+
+    const result = extractLinkedInProfileFromDocument(document);
+
+    expect(result.name).toBe("Kleiton Albuquerque");
+    expect(result.headline).toBe("");
+    expect(result.experiences).toHaveLength(12);
+    expect(result.experiences?.[11]).toBe("Experiência 12 com atuação relevante em produtos digitais e APIs.");
+  });
+
+  it("marks the profile when LinkedIn exposes a full experience details link", () => {
+    document.body.innerHTML = `
+      <main>
+        <h1>Kleiton Albuquerque</h1>
+        <div class="text-body-medium">Software Developer</div>
+        <section id="experience">
+          <h2>Experiência</h2>
+          <ul>
+            <li>Experiência resumida exibida na página principal.</li>
+          </ul>
+          <a href="/in/kleiton/details/experience/">Mostrar todas as experiências</a>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Developer",
+      experiences: ["Experiência resumida exibida na página principal."],
+      hasMoreExperienceDetails: true,
     });
   });
 
@@ -201,7 +249,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "",
-      headline: "Analista de sistemas",
+      headline: "",
       experiences: [
         "Analista de sistemas | jun de 2022 - set de 2024 | 2 anos 4 meses | Atuei no desenvolvimento e manutenção de aplicações web.",
       ],
@@ -239,7 +287,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "",
-      headline: "Sou desenvolvedor com integração e ação prática.",
+      headline: "",
       experiences: ["Atuação com APIs críticas e observabilidade."],
     });
   });
@@ -290,7 +338,7 @@ describe("extractLinkedInProfileFromDocument", () => {
     expect(result.experiences?.[0]?.endsWith("...")).toBe(true);
   });
 
-  it("falls back to main content when there is no h1 container", () => {
+  it("does not use loose main content as headline when there is no h1 container", () => {
     document.body.innerHTML = `
       <main>
         <div class="text-body-medium">Especialista em dados</div>
@@ -299,7 +347,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "",
-      headline: "Especialista em dados",
+      headline: "",
       experiences: [],
     });
   });
@@ -366,7 +414,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "Kleiton Albuquerque",
-      headline: "Profissional com foco em Node.js, arquitetura de APIs e integrações complexas.",
+      headline: "Backend Engineer",
       experiences: [
         "Desenvolveu integrações e automações para múltiplos clientes enterprise.",
       ],
@@ -395,7 +443,7 @@ describe("extractLinkedInProfileFromDocument", () => {
 
     expect(extractLinkedInProfileFromDocument(document)).toEqual({
       name: "Kleiton Albuquerque",
-      headline: "Profissional com foco em Node.js, arquitetura de APIs e integrações complexas.",
+      headline: "",
       experiences: [
         "Desenvolveu integrações e automações para múltiplos clientes enterprise.",
         "Liderou evolução de APIs críticas e observabilidade em produção.",

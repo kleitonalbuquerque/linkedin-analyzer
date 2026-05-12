@@ -2,11 +2,13 @@ export type ExtractedLinkedInProfile = {
   name?: string;
   headline?: string;
   experiences?: string[];
+  hasMoreExperienceDetails?: boolean;
 };
 
 const MAX_EXPERIENCE_LENGTH = 900;
-const MAX_CAPTURED_EXPERIENCES = 10;
 const INVISIBLE_FORMAT_CHARACTER_PATTERN = /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g;
+const PROFILE_SECTION_HEADING_PATTERN =
+  /^(sobre|about|experi[eê]ncia|experience|forma[cç][aã]o|education|compet[eê]ncias|skills|certifica[cç][oõ]es|licenses|projetos|projects)$/i;
 const HEADLINE_METADATA_TERMS = new Set([
   "live",
   "comentario",
@@ -190,14 +192,23 @@ function getFirstText(root: ParentNode, selectors: string[]) {
   return "";
 }
 
+function getProfileNameElement(root: Document) {
+  return Array.from(root.querySelectorAll<HTMLElement>("main h1, h1"))
+    .find((element) => {
+      const text = normalizeText(element.textContent);
+
+      return text && hasMeaningfulLetters(text) && !PROFILE_SECTION_HEADING_PATTERN.test(text);
+    }) || null;
+}
+
 function getTopCard(root: Document) {
-  const nameElement = root.querySelector("main h1, h1");
+  const nameElement = getProfileNameElement(root);
 
   if (nameElement) {
     return nameElement.closest("section, div") || nameElement.parentElement || root.querySelector("main") || root.body;
   }
 
-  return root.querySelector("main") || root.body;
+  return null;
 }
 
 function cleanHeadline(value: string, name: string) {
@@ -251,7 +262,10 @@ function extractHeadlineFromTitle(root: Document, name: string) {
     ? normalizeText(firstRelevantSegment.split(" - ").slice(1).join(" - "))
     : firstRelevantSegment;
 
-  return roleSegment && hasMeaningfulLetters(roleSegment) && !isLikelyExternalHeadline(roleSegment)
+  return roleSegment
+    && hasMeaningfulLetters(roleSegment)
+    && !isLikelyExternalHeadline(roleSegment)
+    && !PROFILE_SECTION_HEADING_PATTERN.test(roleSegment)
     ? roleSegment
     : "";
 }
@@ -291,28 +305,6 @@ function findSection(root: Document, idFragment: string, headingPattern: RegExp)
   }
 
   return findSectionByHeading(root, headingPattern);
-}
-
-function extractAboutParagraphs(section: Element | null) {
-  if (!section) {
-    return [];
-  }
-
-  return uniqueTexts(
-    Array.from(section.querySelectorAll("span[aria-hidden='true'], p, .inline-show-more-text"))
-      .map((element) => normalizeText(element.textContent)),
-  )
-    .filter((text) => text.length >= 40 && !/^(sobre|about)$/i.test(text));
-}
-
-function buildHeadlineFromAbout(aboutParagraphs: string[], name: string) {
-  const normalized = normalizeText(aboutParagraphs.join(" "));
-
-  if (!normalized) {
-    return "";
-  }
-
-  return normalized !== name && hasMeaningfulLetters(normalized) ? normalized : "";
 }
 
 function getLeafExperienceElements(section: Element) {
@@ -366,36 +358,45 @@ function extractExperienceTexts(section: Element | null) {
       .filter((text) => text.length >= 20)
       .filter((text) => !/seguidores|followers|conexoes|connections/i.test(text))
       .filter((text) => !/^(experi[eê]ncia|experience)$/i.test(text))
-  ).slice(0, MAX_CAPTURED_EXPERIENCES);
+  );
+}
+
+function hasExperienceDetailsLink(root: Document) {
+  return Boolean(root.querySelector('a[href*="/details/experience"]'));
 }
 
 export function extractLinkedInProfileFromDocument(root: Document): ExtractedLinkedInProfile {
   const topCard = getTopCard(root);
-  const name = getFirstText(topCard, ["h1", ".pv-text-details__left-panel h1"]) || getFirstText(root, ["main h1", "h1"]) || extractNameFromTitle(root);
-  const aboutSection = findSection(root, "about", /^(sobre|about)$/i);
+  const name = topCard
+    ? getFirstText(topCard, ["h1", ".pv-text-details__left-panel h1"]) || extractNameFromTitle(root)
+    : extractNameFromTitle(root);
   const experienceSection = findSection(root, "experience", /experi[eê]ncia|experience/i);
-  const aboutParagraphs = extractAboutParagraphs(aboutSection);
+  const topCardHeadlineCandidates = topCard
+    ? [
+        getFirstText(topCard, [
+          ".text-body-medium.break-words",
+          ".text-body-medium",
+          ".break-words",
+          ".pv-text-details__left-panel .text-body-medium",
+        ]),
+        ...Array.from(topCard.querySelectorAll("span[aria-hidden='true'], .text-body-medium, .break-words"))
+          .map((element) => normalizeText(element.textContent))
+          .filter(Boolean),
+      ]
+    : [];
   const headlineCandidates = [
-    getFirstText(topCard, [
-      ".text-body-medium.break-words",
-      ".text-body-medium",
-      ".break-words",
-      ".pv-text-details__left-panel .text-body-medium",
-    ]),
-    ...Array.from(topCard.querySelectorAll("span[aria-hidden='true'], .text-body-medium, .break-words"))
-      .map((element) => normalizeText(element.textContent))
-      .filter(Boolean),
+    ...topCardHeadlineCandidates,
     extractHeadlineFromTitle(root, name),
   ];
-  const extractedHeadline = headlineCandidates
+  const headline = headlineCandidates
     .map((candidate) => cleanHeadline(candidate, name))
     .find(Boolean) || "";
-  const headline = buildHeadlineFromAbout(aboutParagraphs, name) || extractedHeadline;
-  const experiences = uniqueTexts(extractExperienceTexts(experienceSection)).slice(0, MAX_CAPTURED_EXPERIENCES);
+  const experiences = uniqueTexts(extractExperienceTexts(experienceSection));
 
   return {
     name,
     headline,
     experiences,
+    ...(hasExperienceDetailsLink(root) ? { hasMoreExperienceDetails: true } : {}),
   };
 }

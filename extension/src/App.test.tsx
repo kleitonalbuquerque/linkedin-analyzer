@@ -6,7 +6,7 @@ const { analyzeActiveProfile, exportAnalysisPdf, formatAnalysisProvider } = vi.h
   analyzeActiveProfile: vi.fn(),
   exportAnalysisPdf: vi.fn(),
   formatAnalysisProvider: vi.fn((provider: string) =>
-    provider === "local-fallback" ? "Analise local" : provider,
+    provider === "local-fallback" ? "Análise local" : provider,
   ),
 }));
 
@@ -49,9 +49,9 @@ describe("App", () => {
     render(<App />);
 
     expect(
-      screen.getByText(/a extensao envia apenas nome, headline e experiencias visiveis/i),
+      screen.getByText(/a extensão envia apenas nome, headline e experiências visíveis/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/sem essa acao, nenhum dado do perfil e enviado/i)).toBeInTheDocument();
+    expect(screen.getByText(/sem essa ação, nenhum dado do perfil é enviado/i)).toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Analisar perfil" }));
@@ -60,7 +60,7 @@ describe("App", () => {
     expect(screen.getByText("Bom posicionamento para o mercado.")).toBeInTheDocument();
     expect(screen.getByText("Boa densidade de palavras-chave")).toBeInTheDocument();
     expect(screen.getByText("Criei APIs em Node.js")).toBeInTheDocument();
-    expect(screen.getByText("Analise local")).toBeInTheDocument();
+    expect(screen.getByText("Análise local")).toBeInTheDocument();
 
     const exportButton = screen.getByRole("button", { name: "Exportar PDF" });
     expect(exportButton).toBeEnabled();
@@ -112,14 +112,14 @@ describe("App", () => {
   });
 
   it("shows user-friendly errors for failed analysis attempts", async () => {
-    analyzeActiveProfile.mockRejectedValueOnce(new Error("Payload invalido"));
+    analyzeActiveProfile.mockRejectedValueOnce(new Error("Payload inválido"));
 
     render(<App />);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Analisar perfil" }));
 
-    expect(await screen.findByText("Falha ao analisar o perfil: Payload invalido")).toBeInTheDocument();
+    expect(await screen.findByText("Falha ao analisar o perfil: Payload inválido")).toBeInTheDocument();
   });
 
   it("falls back to the unknown error message for non-Error failures", async () => {

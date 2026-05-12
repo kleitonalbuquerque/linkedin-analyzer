@@ -24,19 +24,19 @@ describe("analyze route helpers", () => {
   it("rejects invalid payloads", () => {
     expect(validateAnalyzePayload(null)).toEqual({
       isValid: false,
-      error: "Payload invalido. Envie um objeto com os dados do perfil.",
+      error: "Payload inválido. Envie um objeto com os dados do perfil.",
     });
 
     expect(validateAnalyzePayload([])).toEqual({
       isValid: false,
-      error: "Payload invalido. Envie um objeto com os dados do perfil.",
+      error: "Payload inválido. Envie um objeto com os dados do perfil.",
     });
   });
 
   it("requires headline or experience", () => {
     expect(validateAnalyzePayload({ name: "Teste" })).toEqual({
       isValid: false,
-      error: "Forneca ao menos um headline ou uma experiencia do perfil.",
+      error: "Forneça ao menos um headline ou uma experiência do perfil.",
     });
   });
 
@@ -61,6 +61,22 @@ describe("analyze route helpers", () => {
       },
     });
   });
+
+  it("keeps more than ten sanitized experiences with a defensive cap", () => {
+    const experiences = Array.from(
+      { length: 55 },
+      (_, index) => `Experiência ${index + 1} com impacto em produtos digitais.`,
+    );
+
+    const result = validateAnalyzePayload({
+      headline: "Software Developer",
+      experiences,
+    });
+
+    expect(result.isValid).toBe(true);
+    expect(result.data.experiences).toHaveLength(50);
+    expect(result.data.experiences[49]).toBe("Experiência 50 com impacto em produtos digitais.");
+  });
 });
 
 describe("analyze route", () => {
@@ -75,7 +91,7 @@ describe("analyze route", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Forneca ao menos um headline ou uma experiencia do perfil.",
+      message: "Forneça ao menos um headline ou uma experiência do perfil.",
     });
     expect(analyzeLinkedInProfile).not.toHaveBeenCalled();
   });
@@ -123,7 +139,7 @@ describe("analyze route", () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({
-      message: "Falha ao processar a analise do perfil.",
+      message: "Falha ao processar a análise do perfil.",
     });
   });
 });

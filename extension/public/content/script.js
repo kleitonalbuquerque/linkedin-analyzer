@@ -18,7 +18,8 @@ function hasMeaningfulLetters(value) {
 }
 
 const MAX_EXPERIENCE_LENGTH = 900;
-const MAX_CAPTURED_EXPERIENCES = 10;
+const PROFILE_SECTION_HEADING_PATTERN =
+  /^(sobre|about|experi[eê]ncia|experience|forma[cç][aã]o|education|compet[eê]ncias|skills|certifica[cç][oõ]es|licenses|projetos|projects)$/i;
 const HEADLINE_METADATA_TERMS = new Set([
   "live",
   "comentario",
@@ -201,8 +202,22 @@ function getFirstText(selectors, root = document) {
   return "";
 }
 
+function getProfileNameElement() {
+  return (
+    Array.from(document.querySelectorAll("main h1, h1")).find((element) => {
+      const text = normalizeText(element.textContent);
+
+      return (
+        text &&
+        hasMeaningfulLetters(text) &&
+        !PROFILE_SECTION_HEADING_PATTERN.test(text)
+      );
+    }) || null
+  );
+}
+
 function getTopCard() {
-  const nameElement = document.querySelector("main h1, h1");
+  const nameElement = getProfileNameElement();
 
   if (nameElement) {
     return (
@@ -213,7 +228,7 @@ function getTopCard() {
     );
   }
 
-  return document.querySelector("main") || document.body;
+  return null;
 }
 
 function cleanHeadline(value, name) {
@@ -274,7 +289,8 @@ function extractHeadlineFromTitle(name) {
 
   return roleSegment &&
     hasMeaningfulLetters(roleSegment) &&
-    !isLikelyExternalHeadline(roleSegment)
+    !isLikelyExternalHeadline(roleSegment) &&
+    !PROFILE_SECTION_HEADING_PATTERN.test(roleSegment)
     ? roleSegment
     : "";
 }
@@ -319,31 +335,6 @@ function findSection(idFragment, headingPattern) {
   }
 
   return findSectionByHeading(headingPattern);
-}
-
-function extractAboutParagraphs(section) {
-  if (!section) {
-    return [];
-  }
-
-  return uniqueTexts(
-    Array.from(
-      section.querySelectorAll(
-        "span[aria-hidden='true'], p, .inline-show-more-text",
-      ),
-    ).map((element) => normalizeText(element.textContent)),
-  )
-    .filter((text) => text.length >= 40 && !/^(sobre|about)$/i.test(text));
-}
-
-function buildHeadlineFromAbout(aboutParagraphs, name) {
-  const normalized = normalizeText(aboutParagraphs.join(" "));
-
-  if (!normalized) {
-    return "";
-  }
-
-  return normalized !== name && hasMeaningfulLetters(normalized) ? normalized : "";
 }
 
 function getLeafExperienceElements(section) {
@@ -405,51 +396,59 @@ function extractExperienceTexts(section) {
         (text) => !/seguidores|followers|conexoes|connections/i.test(text),
       )
       .filter((text) => !/^(experi[eê]ncia|experience)$/i.test(text)),
-  ).slice(0, MAX_CAPTURED_EXPERIENCES);
+  );
+}
+
+function hasExperienceDetailsLink() {
+  return Boolean(document.querySelector('a[href*="/details/experience"]'));
 }
 
 function getProfileData() {
   const topCard = getTopCard();
-  const name =
-    getFirstText(["h1", ".pv-text-details__left-panel h1"], topCard) ||
-    getFirstText(["main h1", "h1"]) ||
-    extractNameFromTitle();
-  const aboutSection = findSection("about", /^(sobre|about)$/i);
+  const name = topCard
+    ? getFirstText(["h1", ".pv-text-details__left-panel h1"], topCard) ||
+      extractNameFromTitle()
+    : extractNameFromTitle();
   const experienceSection = findSection(
     "experience",
     /experi[eê]ncia|experience/i,
   );
-  const aboutParagraphs = extractAboutParagraphs(aboutSection);
+  const topCardHeadlineCandidates = topCard
+    ? [
+        getFirstText(
+          [
+            ".text-body-medium.break-words",
+            ".text-body-medium",
+            ".break-words",
+            ".pv-text-details__left-panel .text-body-medium",
+          ],
+          topCard,
+        ),
+        ...Array.from(
+          topCard.querySelectorAll(
+            "span[aria-hidden='true'], .text-body-medium, .break-words",
+          ),
+        )
+          .map((element) => normalizeText(element.textContent))
+          .filter(Boolean),
+      ]
+    : [];
   const headlineCandidates = [
-    getFirstText(
-      [
-        ".text-body-medium.break-words",
-        ".text-body-medium",
-        ".break-words",
-        ".pv-text-details__left-panel .text-body-medium",
-      ],
-      topCard,
-    ),
-    ...Array.from(
-      topCard.querySelectorAll(
-        "span[aria-hidden='true'], .text-body-medium, .break-words",
-      ),
-    )
-      .map((element) => normalizeText(element.textContent))
-      .filter(Boolean),
+    ...topCardHeadlineCandidates,
     extractHeadlineFromTitle(name),
   ];
-  const extractedHeadline =
+  const headline =
     headlineCandidates
       .map((candidate) => cleanHeadline(candidate, name))
       .find(Boolean) || "";
-  const headline = buildHeadlineFromAbout(aboutParagraphs, name) || extractedHeadline;
-  const experiences = uniqueTexts(extractExperienceTexts(experienceSection)).slice(
-    0,
-    MAX_CAPTURED_EXPERIENCES,
-  );
+  const experiences = uniqueTexts(extractExperienceTexts(experienceSection));
 
-  return { name, headline, experiences };
+  return {
+    name,
+    headline,
+    experiences,
+    ...(hasExperienceDetailsLink() ? { hasMoreExperienceDetails: true } : {}),
+  };
 }
 
 console.info("[LinkedIn Analyzer] Content script loaded");

@@ -10,7 +10,7 @@ import {
 } from "./lib/analyzer";
 
 function isExpectedUserError(message: string) {
-  return /Atualize a aba|Abra um perfil|Nao foi possivel capturar|metadados da pagina|visualizacao do LinkedIn|Payload invalido/i.test(message);
+  return /Atualize a aba|Abra um perfil|Abra a seção Todas as experiências|Não foi possível capturar|Nao foi possivel capturar|metadados da página|metadados da pagina|visualização do LinkedIn|visualizacao do LinkedIn|Payload inválido|Payload invalido/i.test(message);
 }
 
 function App() {
@@ -54,16 +54,16 @@ function App() {
       <div className="popup-card">
         <div className="hero-block">
           <p className="eyebrow">LinkedIn Analyzer</p>
-          <h1>Diagnostico de perfil com score de mercado</h1>
+          <h1>Diagnóstico de perfil com score de mercado</h1>
           <p className="hero-copy">
-            Capture o perfil aberto no LinkedIn, gere sugestoes com IA e exporte um PDF do resultado.
+            Capture o perfil aberto no LinkedIn, gere sugestões com IA e exporte um PDF do resultado.
           </p>
           <p className="disclosure-copy">
-            Ao clicar em Analisar perfil, a extensao envia apenas nome, headline e experiencias visiveis do
-            perfil aberto para o backend do LinkedIn Analyzer processar o diagnostico.
+            Ao clicar em Analisar perfil, a extensão envia apenas nome, headline e experiências visíveis do
+            perfil aberto para o backend do LinkedIn Analyzer processar o diagnóstico.
           </p>
           <p className="privacy-copy">
-            Sem essa acao, nenhum dado do perfil e enviado. Consulte a politica de privacidade publica do
+            Sem essa ação, nenhum dado do perfil é enviado. Consulte a política de privacidade pública do
             projeto para mais detalhes.
           </p>
         </div>
@@ -106,7 +106,7 @@ function App() {
 
             {profile?.experiences?.length ? (
               <div>
-                <p className="muted-label">Experiencias analisadas</p>
+                <p className="muted-label">Experiências analisadas</p>
                 <ul className="bullet-list profile-list">
                   {profile.experiences.map((experience, index) => (
                     <li key={`${experience}-${index}`}>{experience}</li>
@@ -144,7 +144,7 @@ function App() {
             </div>
 
             <div>
-              <p className="muted-label">Sugestoes prioritarias</p>
+              <p className="muted-label">Sugestões prioritárias</p>
               <ul className="bullet-list suggestions-list">
                 {analysis.sugestoes.map((suggestion, index) => (
                   <li key={`${suggestion}-${index}`}>{suggestion}</li>
