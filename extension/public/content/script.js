@@ -18,6 +18,7 @@ function hasMeaningfulLetters(value) {
 }
 
 const MAX_EXPERIENCE_LENGTH = 900;
+const PROFILE_CAPTURE_VERSION = "profile-capture-v2";
 const PROFILE_SECTION_HEADING_PATTERN =
   /^(sobre|about|experi[eê]ncia|experience|forma[cç][aã]o|education|compet[eê]ncias|skills|certifica[cç][oõ]es|licenses|projetos|projects)$/i;
 const HEADLINE_METADATA_TERMS = new Set([
@@ -447,6 +448,7 @@ function getProfileData() {
     name,
     headline,
     experiences,
+    captureVersion: PROFILE_CAPTURE_VERSION,
     ...(hasExperienceDetailsLink() ? { hasMoreExperienceDetails: true } : {}),
   };
 }

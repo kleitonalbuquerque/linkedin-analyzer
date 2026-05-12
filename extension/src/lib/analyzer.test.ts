@@ -7,6 +7,7 @@ import {
   exportAnalysisPdf,
   formatAnalysisProvider,
   getProfileCaptureError,
+  getProfileCaptureNotice,
   getProfileFromActiveTab,
   hasProfileData,
   isLikelyExternalHeadline,
@@ -101,13 +102,52 @@ describe("analyzer helpers", () => {
         },
         "https://www.linkedin.com/in/teste/",
       ),
+    ).toBeNull();
+    expect(
+      getProfileCaptureNotice(
+        {
+          name: "Kleiton",
+          headline: "Software Engineer",
+          experiences: ["Projeto resumido"],
+          hasMoreExperienceDetails: true,
+        },
+        "https://www.linkedin.com/in/teste/",
+      ),
     ).toContain("Todas as experiências");
+    expect(
+      getProfileCaptureNotice(
+        {
+          name: "Kleiton",
+          headline: "Software Engineer",
+          experiences: ["Projeto resumido"],
+          hasMoreExperienceDetails: true,
+        },
+        "https://www.linkedin.com/in/teste/details/experience/",
+      ),
+    ).toBeNull();
     expect(
       getProfileCaptureError(
         { name: "Kleiton", headline: "Software Engineer", experiences: ["Projeto resumido"] },
         "https://www.linkedin.com/in/teste/details/experience/",
       ),
     ).toBeNull();
+  });
+
+  it("asks for a tab refresh when the active content script is stale", () => {
+    vi.stubGlobal("chrome", {
+      runtime: {
+        getManifest: () => ({ version: "1.0.3" }),
+      },
+    });
+
+    expect(
+      getProfileCaptureError(
+        { name: "Kleiton", headline: "Software Engineer", experiences: ["Projeto"] },
+        "https://www.linkedin.com/in/teste/",
+      ),
+    ).toContain("versão antiga");
+
+    vi.unstubAllGlobals();
   });
 
   it("builds a normalized PDF filename with fallback", () => {

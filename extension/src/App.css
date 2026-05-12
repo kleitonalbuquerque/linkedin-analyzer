@@ -40,7 +40,8 @@
 }
 
 .disclosure-copy,
-.privacy-copy {
+.privacy-copy,
+.guidance-copy {
   margin: 0;
   padding: 12px 14px;
   border-radius: 14px;
@@ -58,6 +59,13 @@
   color: #475569;
   background: rgba(248, 250, 252, 0.95);
   border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.guidance-copy,
+.status-message.warning {
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
 .actions-row {

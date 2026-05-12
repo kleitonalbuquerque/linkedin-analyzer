@@ -17,6 +17,7 @@ function isExpectedUserError(message: string) {
 function App() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [profile, setProfile] = useState<LinkedInProfile | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -24,10 +25,12 @@ function App() {
     try {
       setIsAnalyzing(true);
       setError(null);
+      setNotice(null);
       setAnalysis(null);
       const result = await analyzeActiveProfile();
 
       setProfile(result.profile);
+      setNotice(result.notice || null);
       setAnalysis(result.analysis);
     } catch (caughtError) {
       const message = caughtError instanceof Error
@@ -71,6 +74,10 @@ function App() {
             Sem essa ação, nenhum dado do perfil é enviado. Consulte a política de privacidade pública do
             projeto para mais detalhes.
           </p>
+          <p className="guidance-copy">
+            Para incluir todas as experiências, abra a seção Todas as experiências no LinkedIn e mantenha essa
+            aba ativa antes de analisar.
+          </p>
         </div>
 
         <div className="actions-row">
@@ -83,6 +90,7 @@ function App() {
         </div>
 
         {error && <p className="status-message error">{error}</p>}
+        {notice && <p className="status-message warning">{notice}</p>}
 
         {analysis && (
           <div className="analysis-card">

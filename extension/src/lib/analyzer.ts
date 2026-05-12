@@ -21,6 +21,7 @@ export type LinkedInProfile = {
   headline?: string;
   experiences?: string[];
   hasMoreExperienceDetails?: boolean;
+  captureVersion?: string;
 };
 
 type BrowserTab = {
@@ -75,6 +76,7 @@ const PDF_A4_WIDTH = 595.28;
 const PDF_A4_HEIGHT = 841.89;
 const PDF_TEXT_WIDTH_FACTOR = 0.52;
 const PDF_LINE_HEIGHT_OFFSET = 2;
+const PROFILE_CAPTURE_VERSION = "profile-capture-v2";
 const INVISIBLE_FORMAT_CHARACTER_PATTERN = /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g;
 const PDF_WIN_ANSI_SPECIAL_CHARS = new Map<number, number>([
   [8364, 128],
@@ -476,6 +478,7 @@ function normalizeProfile(profile: LinkedInProfile): LinkedInProfile {
       ? profile.experiences.map((experience) => normalizeUnicodeText(experience)).filter(Boolean)
       : [],
     ...(profile.hasMoreExperienceDetails ? { hasMoreExperienceDetails: true } : {}),
+    ...(profile.captureVersion ? { captureVersion: profile.captureVersion } : {}),
   };
 }
 
@@ -542,6 +545,10 @@ export function isSuspiciousProfileHeadline(headline?: string) {
 }
 
 export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string) {
+  if (getExtensionVersion() && profile.captureVersion !== PROFILE_CAPTURE_VERSION) {
+    return "Atualize a aba do LinkedIn aberta e tente novamente. A aba ainda está usando uma versão antiga da extensão.";
+  }
+
   if (isSuspiciousProfileHeadline(profile.headline)) {
     return "O LinkedIn parece ter capturado metadados da página ou um título externo em vez da headline do perfil. Feche modais e analise a página principal do perfil.";
   }
@@ -550,12 +557,19 @@ export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string
   const isDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/");
   const isExperienceDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/experience");
 
-  if (profile.hasMoreExperienceDetails && !isExperienceDetailsPage && experiencesCount <= 2) {
-    return "Abra a seção Todas as experiências do LinkedIn e execute a análise nessa tela para capturar a lista completa.";
-  }
-
   if (isDetailsPage && !isExperienceDetailsPage && experiencesCount < 2) {
     return "A captura do perfil ficou incompleta nesta visualização do LinkedIn. Volte para a página principal do perfil antes de analisar.";
+  }
+
+  return null;
+}
+
+export function getProfileCaptureNotice(profile: LinkedInProfile, tabUrl?: string) {
+  const experiencesCount = profile.experiences?.length || 0;
+  const isExperienceDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/experience");
+
+  if (profile.hasMoreExperienceDetails && !isExperienceDetailsPage && experiencesCount <= 2) {
+    return "Para capturar todas as experiências, abra a seção Todas as experiências do LinkedIn e mantenha essa aba ativa antes de analisar.";
   }
 
   return null;
@@ -658,6 +672,8 @@ export async function analyzeActiveProfile({
     throw new Error(profileCaptureError);
   }
 
+  const profileCaptureNotice = getProfileCaptureNotice(profile, tab.url);
+
   console.info("[LinkedIn Analyzer] Profile captured", profile);
 
   const response = await fetchImpl(`${apiBaseUrl}/analyze`, {
@@ -680,7 +696,7 @@ export async function analyzeActiveProfile({
   const analysis = (await response.json()) as AnalysisResult;
   console.info("[LinkedIn Analyzer] Analysis finished", analysis);
 
-  return { profile, analysis };
+  return { profile, analysis, notice: profileCaptureNotice };
 }
 
 export function exportAnalysisPdf(

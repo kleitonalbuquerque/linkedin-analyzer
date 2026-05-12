@@ -55,6 +55,7 @@ describe("App", () => {
       screen.getByText(/a extensão envia apenas nome, headline e experiências visíveis/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/sem essa ação, nenhum dado do perfil é enviado/i)).toBeInTheDocument();
+    expect(screen.getByText(/para incluir todas as experiências/i)).toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Analisar perfil" }));
@@ -74,6 +75,39 @@ describe("App", () => {
       expect.objectContaining({ score: 82 }),
       expect.objectContaining({ name: "Kleiton" }),
     );
+  });
+
+  it("shows a non-blocking capture notice with the analysis result", async () => {
+    analyzeActiveProfile.mockResolvedValue({
+      profile: {
+        name: "Kleiton",
+        headline: "Backend Engineer",
+        experiences: ["Projeto 1", "Projeto 2"],
+      },
+      analysis: {
+        nivel: "Pleno",
+        score: 82,
+        foco: "Backend",
+        pontosFortes: ["Boa densidade de palavras-chave"],
+        pontosFracos: ["Falta de metricas de impacto"],
+        problemas: ["Sem metricas claras de impacto nas experiencias."],
+        benchmark: "Bom posicionamento para o mercado.",
+        resumo: "Resumo objetivo.",
+        sugestoes: ["Inclua resultados com numeros."],
+        provider: "local-fallback",
+      },
+      notice: "Para capturar todas as experiências, abra a seção Todas as experiências do LinkedIn.",
+    });
+
+    render(<App />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Analisar perfil" }));
+
+    expect(
+      await screen.findByText("Para capturar todas as experiências, abra a seção Todas as experiências do LinkedIn."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("82")).toBeInTheDocument();
   });
 
   it("shows the loading state while analyzing", async () => {
