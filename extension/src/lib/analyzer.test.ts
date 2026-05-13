@@ -107,6 +107,26 @@ describe("analyzer helpers", () => {
       getProfileCaptureError(
         {
           name: "Kleiton",
+          headline: "",
+          experiences: ["Projeto 1 com React e Node.js", "Projeto 2 com Java e integrações"],
+        },
+        "https://www.linkedin.com/in/teste/details/experience/",
+      ),
+    ).toBeNull();
+    expect(
+      getProfileCaptureNotice(
+        {
+          name: "Kleiton",
+          headline: "",
+          experiences: ["Projeto 1 com React e Node.js", "Projeto 2 com Java e integrações"],
+        },
+        "https://www.linkedin.com/in/teste/details/experience/",
+      ),
+    ).toContain("experiências completas");
+    expect(
+      getProfileCaptureError(
+        {
+          name: "Kleiton",
           headline: "Software Engineer",
           experiences: ["Projeto resumido"],
           hasMoreExperienceDetails: true,
@@ -415,6 +435,91 @@ describe("analyzeActiveProfile", () => {
         "Experiência 2 com Next.js e SEO técnico no setor educacional.",
         "Experiência 3 com Node.js em serviços transacionais.",
       ],
+    });
+  });
+
+  it("infers a headline from the current role on the full experience details page", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([
+          { id: 10, url: "https://www.linkedin.com/in/teste/details/experience/" },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "",
+          experiences: [
+            "Fullstack Developer | UX Especialist | Mirante Tecnologia | Tempo integral | out de 2024 - o momento | Atuo no desenvolvimento de aplicações web com React e Java.",
+            "Analista de sistemas | YDUQS | jun de 2022 - set de 2024 | Desenvolvi aplicações com Next.js e Node.js.",
+            "Software Developer | Qualicorp | nov de 2021 - fev de 2023 | Desenvolvi APIs em Node.js.",
+          ],
+        }),
+      },
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(createAnalysis()),
+    });
+
+    await analyzeActiveProfile({
+      chromeApi,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com",
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith("https://api.example.com/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Kleiton",
+        headline: "Fullstack Developer | UX Especialist",
+        experiences: [
+          "Fullstack Developer | UX Especialist | Mirante Tecnologia | Tempo integral | out de 2024 - o momento | Atuo no desenvolvimento de aplicações web com React e Java.",
+          "Analista de sistemas | YDUQS | jun de 2022 - set de 2024 | Desenvolvi aplicações com Next.js e Node.js.",
+          "Software Developer | Qualicorp | nov de 2021 - fev de 2023 | Desenvolvi APIs em Node.js.",
+        ],
+      }),
+    });
+  });
+
+  it("analyzes the full experience details page even when the headline cannot be inferred", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([
+          { id: 10, url: "https://www.linkedin.com/in/teste/details/experience/" },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "",
+          experiences: [
+            "Atuação relevante em integrações críticas.",
+            "Entrega de sistemas web com manutenção e sustentação.",
+          ],
+        }),
+      },
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(createAnalysis()),
+    });
+
+    const result = await analyzeActiveProfile({
+      chromeApi,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com",
+    });
+
+    expect(result.notice).toContain("experiências completas");
+    expect(fetchImpl).toHaveBeenCalledWith("https://api.example.com/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Kleiton",
+        headline: "",
+        experiences: [
+          "Atuação relevante em integrações críticas.",
+          "Entrega de sistemas web com manutenção e sustentação.",
+        ],
+      }),
     });
   });
 

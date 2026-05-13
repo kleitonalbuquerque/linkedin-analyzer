@@ -173,6 +173,11 @@ const JOB_REFERENCE_PATTERN = /\(([a-z]{2,}[\d-]{3,}|[a-z]+\d{4,}|[a-z]{1,4}\d{5
 const SOCIAL_PROOF_HEADLINE_PATTERN = /(?:^|\s)(?:me ajudou a conseguir (?:este|esse) emprego|helped me get this job)(?:$|\s)/i;
 const SOCIAL_CONTEXT_HEADLINE_PATTERN =
   /(?:\be mais (?:\d{1,3}(?:[.,]\d{3})+|\d+) pessoas?\b|\band (?:\d{1,3}(?:[.,]\d{3})+|\d+) other people\b|\bmutual connections?\b|\bconex(?:ao|ões|oes) em comum\b|\bfollows? you\b|\bsegue voce\b)/i;
+const EXPERIENCE_DETAILS_PATH_PATTERN = /\/details\/experience/i;
+const EXPERIENCE_TITLE_STOP_PATTERN =
+  /^(tempo integral|full-time|part-time|meio periodo|meio período|remoto|remote|hibrido|híbrido|presencial|rio de janeiro|sao paulo|são paulo|brasil|brazil)$/i;
+const EXPERIENCE_DATE_FRAGMENT_PATTERN =
+  /\b(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez|jan\.|feb|mar\.|apr|may|jun\.|jul\.|aug|sep|sept|oct|nov\.|dec|de|of)\s+\d{4}\b|\b\d+\s+(?:ano|anos|mes|meses|mês|year|years|month|months)\b/i;
 
 export class BrowserPdfDocument implements PdfDocument {
   internal = {
@@ -412,6 +417,10 @@ function normalizeUnicodeText(value?: string) {
     .trim();
 }
 
+function hasMeaningfulLetters(value: string) {
+  return /[A-Za-zÀ-ÿ]/.test(value);
+}
+
 function replaceControlCharacters(value: string) {
   return Array.from(value, (character) => {
     const codePoint = character.codePointAt(0) ?? 0;
@@ -521,6 +530,63 @@ function getCachedProfileHeadline(tabUrl: string | undefined, profile: LinkedInP
   return normalizeUnicodeText(readHeadlineCache()[cacheId]);
 }
 
+function isExperienceDetailsUrl(tabUrl?: string) {
+  return typeof tabUrl === "string" && EXPERIENCE_DETAILS_PATH_PATTERN.test(tabUrl);
+}
+
+function isLikelyExperienceTitleFragment(value: string) {
+  const text = normalizeUnicodeText(value);
+
+  return Boolean(text)
+    && text.length <= 120
+    && hasMeaningfulLetters(text)
+    && hasProfessionalHeadlineSignal(text)
+    && !EXPERIENCE_TITLE_STOP_PATTERN.test(text)
+    && !EXPERIENCE_DATE_FRAGMENT_PATTERN.test(text)
+    && !isSuspiciousProfileHeadline(text);
+}
+
+function inferHeadlineFromExperiences(profile: LinkedInProfile) {
+  const firstExperience = normalizeUnicodeText(profile.experiences?.[0]);
+
+  if (!firstExperience) {
+    return "";
+  }
+
+  const separatedFragments = firstExperience
+    .split(/\s+\|\s+/)
+    .map((fragment) => normalizeUnicodeText(fragment))
+    .filter(Boolean);
+  const titleFragments: string[] = [];
+
+  if (separatedFragments.length > 1) {
+    for (const fragment of separatedFragments) {
+      if (isLikelyExperienceTitleFragment(fragment)) {
+        titleFragments.push(fragment);
+        continue;
+      }
+
+      if (titleFragments.length) {
+        break;
+      }
+    }
+  }
+
+  if (titleFragments.length) {
+    return titleFragments.slice(0, 2).join(" | ");
+  }
+
+  const dateFragments = firstExperience.split(EXPERIENCE_DATE_FRAGMENT_PATTERN);
+
+  if (dateFragments.length < 2) {
+    return "";
+  }
+
+  const [titleBeforeDate] = dateFragments;
+
+  return isLikelyExperienceTitleFragment(titleBeforeDate) ? normalizeUnicodeText(titleBeforeDate) : "";
+}
+
 function cacheProfileHeadline(tabUrl: string | undefined, profile: LinkedInProfile) {
   const cacheId = getProfileCacheId(tabUrl, profile);
   const headline = normalizeUnicodeText(profile.headline);
@@ -609,17 +675,17 @@ export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string
     return "Atualize a aba do LinkedIn aberta e tente novamente. A aba ainda está usando uma versão antiga da extensão.";
   }
 
-  if (!profile.headline) {
-    return "Não consegui capturar a headline do perfil. Analise a página principal do perfil uma vez, depois volte para Todas as experiências e tente novamente.";
+  const experiencesCount = profile.experiences?.length || 0;
+  const isDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/");
+  const isExperienceDetailsPage = isExperienceDetailsUrl(tabUrl);
+
+  if (!profile.headline && (!isExperienceDetailsPage || experiencesCount < 2)) {
+    return "Não consegui capturar a headline do perfil. Atualize a página principal do perfil no LinkedIn e tente novamente.";
   }
 
   if (isSuspiciousProfileHeadline(profile.headline)) {
     return "O LinkedIn parece ter capturado metadados da página ou um título externo em vez da headline do perfil. Feche modais e analise a página principal do perfil.";
   }
-
-  const experiencesCount = profile.experiences?.length || 0;
-  const isDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/");
-  const isExperienceDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/experience");
 
   if (isDetailsPage && !isExperienceDetailsPage && experiencesCount < 2) {
     return "A captura do perfil ficou incompleta nesta visualização do LinkedIn. Volte para a página principal do perfil antes de analisar.";
@@ -630,7 +696,11 @@ export function getProfileCaptureError(profile: LinkedInProfile, tabUrl?: string
 
 export function getProfileCaptureNotice(profile: LinkedInProfile, tabUrl?: string) {
   const experiencesCount = profile.experiences?.length || 0;
-  const isExperienceDetailsPage = typeof tabUrl === "string" && tabUrl.includes("/details/experience");
+  const isExperienceDetailsPage = isExperienceDetailsUrl(tabUrl);
+
+  if (!profile.headline && isExperienceDetailsPage && experiencesCount >= 2) {
+    return "O LinkedIn não expôs a headline nesta tela. A análise usou as experiências completas capturadas.";
+  }
 
   if (profile.hasMoreExperienceDetails && !isExperienceDetailsPage && experiencesCount <= 2) {
     return "Headline capturada. Para incluir a lista completa, abra a seção Todas as experiências do LinkedIn e execute a análise novamente.";
@@ -726,11 +796,13 @@ export async function analyzeActiveProfile({
 
   if (!profile.headline) {
     const cachedHeadline = getCachedProfileHeadline(tab.url, profile);
+    const inferredHeadline = isExperienceDetailsUrl(tab.url) ? inferHeadlineFromExperiences(profile) : "";
+    const fallbackHeadline = cachedHeadline || inferredHeadline;
 
-    if (cachedHeadline) {
+    if (fallbackHeadline) {
       profile = {
         ...profile,
-        headline: cachedHeadline,
+        headline: fallbackHeadline,
       };
     }
   }

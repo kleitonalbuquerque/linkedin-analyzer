@@ -75,8 +75,8 @@ function App() {
             projeto para mais detalhes.
           </p>
           <p className="guidance-copy">
-            Para incluir todas as experiências, analise a página principal do perfil uma vez, depois abra a seção
-            Todas as experiências no LinkedIn e execute a análise novamente.
+            Para incluir todas as experiências, abra a seção Todas as experiências no LinkedIn, expanda os itens
+            relevantes e execute a análise nessa tela.
           </p>
         </div>
 
