@@ -4,7 +4,6 @@ import "./App.css";
 import {
   analyzeActiveProfile,
   exportAnalysisPdf,
-  formatAnalysisProvider,
   reportClientError,
   type AnalysisResult,
   type LinkedInProfile,
@@ -102,7 +101,6 @@ function App() {
               <div className="score-meta">
                 <span className="pill">{analysis.nivel}</span>
                 <span className="focus-pill">{analysis.foco}</span>
-                <span className="provider-pill">{formatAnalysisProvider(analysis.provider)}</span>
               </div>
             </div>
 

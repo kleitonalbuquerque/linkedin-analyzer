@@ -2,19 +2,15 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { analyzeActiveProfile, exportAnalysisPdf, formatAnalysisProvider, reportClientError } = vi.hoisted(() => ({
+const { analyzeActiveProfile, exportAnalysisPdf, reportClientError } = vi.hoisted(() => ({
   analyzeActiveProfile: vi.fn(),
   exportAnalysisPdf: vi.fn(),
-  formatAnalysisProvider: vi.fn((provider: string) =>
-    provider === "local-fallback" ? "Análise local" : provider,
-  ),
   reportClientError: vi.fn(),
 }));
 
 vi.mock("./lib/analyzer", () => ({
   analyzeActiveProfile,
   exportAnalysisPdf,
-  formatAnalysisProvider,
   reportClientError,
 }));
 
@@ -24,7 +20,6 @@ describe("App", () => {
   beforeEach(() => {
     analyzeActiveProfile.mockReset();
     exportAnalysisPdf.mockReset();
-    formatAnalysisProvider.mockClear();
     reportClientError.mockReset();
   });
 
@@ -64,7 +59,7 @@ describe("App", () => {
     expect(screen.getByText("Bom posicionamento para o mercado.")).toBeInTheDocument();
     expect(screen.getByText("Boa densidade de palavras-chave")).toBeInTheDocument();
     expect(screen.getByText("Criei APIs em Node.js")).toBeInTheDocument();
-    expect(screen.getByText("Análise local")).toBeInTheDocument();
+    expect(screen.queryByText("Análise local")).not.toBeInTheDocument();
 
     const exportButton = screen.getByRole("button", { name: "Exportar PDF" });
     expect(exportButton).toBeEnabled();
