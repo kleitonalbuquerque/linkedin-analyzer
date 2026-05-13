@@ -1,4 +1,5 @@
 const DEFAULT_API_BASE_URL = "http://localhost:3000";
+const CONTENT_SCRIPT_FILE = "content/script.js";
 const PROFILE_MESSAGE = { type: "GET_PROFILE" } as const;
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL;
@@ -33,6 +34,9 @@ export type ChromeApi = {
   tabs: {
     query(queryInfo: chrome.tabs.QueryInfo): Promise<BrowserTab[]>;
     sendMessage(tabId: number, message: typeof PROFILE_MESSAGE): Promise<LinkedInProfile>;
+  };
+  scripting?: {
+    executeScript(injection: { target: { tabId: number }; files: string[] }): Promise<unknown>;
   };
 };
 
@@ -730,6 +734,24 @@ function isMissingReceiverError(error: unknown) {
     && /Could not establish connection|Receiving end does not exist|The message port closed/i.test(error.message);
 }
 
+async function injectProfileContentScript(tabId: number, chromeApi: ChromeApi) {
+  if (typeof chromeApi.scripting?.executeScript !== "function") {
+    return false;
+  }
+
+  try {
+    await chromeApi.scripting.executeScript({
+      target: { tabId },
+      files: [CONTENT_SCRIPT_FILE],
+    });
+
+    return true;
+  } catch (error) {
+    console.warn("[LinkedIn Analyzer] Failed to inject content script", error);
+    return false;
+  }
+}
+
 export async function getProfileFromActiveTab(
   tabId: number,
   chromeApi: ChromeApi = chrome,
@@ -743,19 +765,34 @@ export async function getProfileFromActiveTab(
     sleepImpl?: (delayMs: number) => Promise<unknown>;
   } = {},
 ): Promise<LinkedInProfile> {
-  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+  let sendAttempts = 0;
+  let attemptedInjection = false;
+
+  for (;;) {
     try {
+      sendAttempts += 1;
       return await chromeApi.tabs.sendMessage(tabId, PROFILE_MESSAGE);
     } catch (error) {
-      if (!isMissingReceiverError(error) || attempt === maxRetries) {
+      if (!isMissingReceiverError(error)) {
+        throw new Error("Atualize a aba do LinkedIn aberta e tente novamente.");
+      }
+
+      if (!attemptedInjection) {
+        attemptedInjection = true;
+
+        if (await injectProfileContentScript(tabId, chromeApi)) {
+          await sleepImpl(retryDelayMs);
+          continue;
+        }
+      }
+
+      if (sendAttempts > maxRetries) {
         throw new Error("Atualize a aba do LinkedIn aberta e tente novamente.");
       }
 
       await sleepImpl(retryDelayMs);
     }
   }
-
-  throw new Error("Atualize a aba do LinkedIn aberta e tente novamente.");
 }
 
 export function buildPdfFileName(profile: LinkedInProfile | null) {

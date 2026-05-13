@@ -85,7 +85,7 @@ if (!existsSync(manifestPath)) {
   const hostPermissions = Array.isArray(manifest.host_permissions) ? manifest.host_permissions : [];
   const csp = manifest.content_security_policy?.extension_pages;
 
-  for (const permission of ["activeTab", "scripting"]) {
+  for (const permission of ["activeTab"]) {
     if (permissions.includes(permission)) {
       errors.push(`Store manifest should not request ${permission}.`);
     }

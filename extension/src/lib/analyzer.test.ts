@@ -25,6 +25,7 @@ afterEach(() => {
 
 function createChromeApi(overrides: Partial<ChromeApi> = {}): ChromeApi {
   return {
+    ...overrides,
     tabs: {
       query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/teste" }]),
       sendMessage: vi.fn().mockResolvedValue({
@@ -227,6 +228,39 @@ describe("getProfileFromActiveTab", () => {
     expect(sleepImpl).toHaveBeenCalledTimes(1);
   });
 
+  it("injects the content script when the receiver is missing", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/teste" }]),
+        sendMessage: vi
+          .fn()
+          .mockRejectedValueOnce(new Error("Could not establish connection. Receiving end does not exist."))
+          .mockResolvedValueOnce({
+            name: "Kleiton",
+            headline: "Backend Engineer",
+            experiences: ["Criei APIs em Node.js"],
+          }),
+      },
+      scripting: {
+        executeScript: vi.fn().mockResolvedValue([]),
+      },
+    });
+    const sleepImpl = vi.fn().mockResolvedValue(undefined);
+
+    await expect(getProfileFromActiveTab(10, chromeApi, { sleepImpl })).resolves.toEqual({
+      name: "Kleiton",
+      headline: "Backend Engineer",
+      experiences: ["Criei APIs em Node.js"],
+    });
+
+    expect(chromeApi.scripting?.executeScript).toHaveBeenCalledWith({
+      target: { tabId: 10 },
+      files: ["content/script.js"],
+    });
+    expect(chromeApi.tabs.sendMessage).toHaveBeenCalledTimes(2);
+    expect(sleepImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("asks the user to refresh the page when the content script is unavailable after retries", async () => {
     const chromeApi = createChromeApi({
       tabs: {
@@ -242,6 +276,49 @@ describe("getProfileFromActiveTab", () => {
 
     expect(chromeApi.tabs.sendMessage).toHaveBeenCalledTimes(3);
     expect(sleepImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks the user to refresh the page when content script injection fails", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/teste" }]),
+        sendMessage: vi.fn().mockRejectedValue(new Error("Could not establish connection. Receiving end does not exist.")),
+      },
+      scripting: {
+        executeScript: vi.fn().mockRejectedValue(new Error("Cannot access contents of the page")),
+      },
+    });
+    const sleepImpl = vi.fn().mockResolvedValue(undefined);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(getProfileFromActiveTab(10, chromeApi, { maxRetries: 0, sleepImpl })).rejects.toThrow(
+      "Atualize a aba do LinkedIn aberta e tente novamente.",
+    );
+
+    expect(chromeApi.scripting?.executeScript).toHaveBeenCalledTimes(1);
+    expect(chromeApi.tabs.sendMessage).toHaveBeenCalledTimes(1);
+    expect(sleepImpl).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("does not inject the content script for unrelated tab messaging errors", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 10, url: "https://www.linkedin.com/in/teste" }]),
+        sendMessage: vi.fn().mockRejectedValue(new Error("Permission denied")),
+      },
+      scripting: {
+        executeScript: vi.fn().mockResolvedValue([]),
+      },
+    });
+    const sleepImpl = vi.fn().mockResolvedValue(undefined);
+
+    await expect(getProfileFromActiveTab(10, chromeApi, { sleepImpl })).rejects.toThrow(
+      "Atualize a aba do LinkedIn aberta e tente novamente.",
+    );
+
+    expect(chromeApi.scripting?.executeScript).not.toHaveBeenCalled();
+    expect(sleepImpl).not.toHaveBeenCalled();
   });
 });
 
@@ -476,6 +553,47 @@ describe("analyzeActiveProfile", () => {
           "Fullstack Developer | UX Especialist | Mirante Tecnologia | Tempo integral | out de 2024 - o momento | Atuo no desenvolvimento de aplicações web com React e Java.",
           "Analista de sistemas | YDUQS | jun de 2022 - set de 2024 | Desenvolvi aplicações com Next.js e Node.js.",
           "Software Developer | Qualicorp | nov de 2021 - fev de 2023 | Desenvolvi APIs em Node.js.",
+        ],
+      }),
+    });
+  });
+
+  it("infers a headline from a date-delimited role on the full experience details page", async () => {
+    const chromeApi = createChromeApi({
+      tabs: {
+        query: vi.fn().mockResolvedValue([
+          { id: 10, url: "https://www.linkedin.com/in/teste/details/experience/" },
+        ]),
+        sendMessage: vi.fn().mockResolvedValue({
+          name: "Kleiton",
+          headline: "",
+          experiences: [
+            "Software Engineer jan 2022 Desenvolvi APIs em Node.js para produto financeiro.",
+            "Analista de sistemas jun 2020 Entreguei sistemas internos com React.",
+          ],
+        }),
+      },
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(createAnalysis()),
+    });
+
+    await analyzeActiveProfile({
+      chromeApi,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com",
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith("https://api.example.com/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Kleiton",
+        headline: "Software Engineer",
+        experiences: [
+          "Software Engineer jan 2022 Desenvolvi APIs em Node.js para produto financeiro.",
+          "Analista de sistemas jun 2020 Entreguei sistemas internos com React.",
         ],
       }),
     });

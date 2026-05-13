@@ -84,6 +84,80 @@ describe("extractLinkedInProfileFromDocument", () => {
     });
   });
 
+  it("captures a classless headline immediately below the profile name", () => {
+    document.body.innerHTML = `
+      <main>
+        <section class="artdeco-card">
+          <div class="pv-text-details__left-panel">
+            <div>
+              <h1 class="text-heading-xlarge break-words">Kleiton Albuquerque</h1>
+            </div>
+            <button><p>Software Developer</p></button>
+            <div>Software Developer | Java, Spring Boot | React, React Native, Vue, Node.js | Performance, UX, Testes e CI/CD</div>
+            <div>Rio de Janeiro, Rio de Janeiro, Brasil · Dados de contato</div>
+            <span>Mais de 500 conexões</span>
+          </div>
+          <aside>
+            <div>Mirante Tecnologia</div>
+            <div>Centro Universitário IBMR</div>
+          </aside>
+        </section>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Developer | Java, Spring Boot | React, React Native, Vue, Node.js | Performance, UX, Testes e CI/CD",
+      experiences: [],
+    });
+  });
+
+  it("captures the current LinkedIn top card structure with h2 name and p headline", () => {
+    window.history.replaceState(null, "", "/in/kleiton-albuquerque/");
+    document.title = "Kleiton Albuquerque | LinkedIn";
+    document.body.innerHTML = `
+      <h2>0 notificação</h2>
+      <main>
+        <div componentkey="com.linkedin.sdui.profile.card.refTopcard">
+          <section>
+            <div>
+              <a href="https://www.linkedin.com/in/kleiton-albuquerque/">
+                <div>
+                  <h2 class="_946213aa d9b09257 _0f86e326">Kleiton Albuquerque</h2>
+                  <svg aria-label="Ver verificações de Kleiton"></svg>
+                </div>
+              </a>
+            </div>
+            <p class="_946213aa _8bce2fa5 _9fd89c5c">
+              Software Developer | Java, Spring Boot | React, React Native, Vue, Node.js | Performance, UX, Testes e CI/CD
+            </p>
+            <p>Mirante Tecnologia · Centro Universitário IBMR</p>
+            <div>
+              <p>Rio de Janeiro, Rio de Janeiro, Brasil</p>
+              <p>·</p>
+              <p><a href="#">Dados de contato</a></p>
+            </div>
+            <div style="min-width: 24rem;">
+              <div>
+                <p><span>Mirante Tecnologia</span></p>
+                <p><span>Centro Universitário IBMR</span></p>
+              </div>
+            </div>
+            <a href="https://www.linkedin.com/mynetwork/invite-connect/connections/">
+              <p>Mais de 500 conexões</p>
+            </a>
+          </section>
+        </div>
+      </main>
+    `;
+
+    expect(extractLinkedInProfileFromDocument(document)).toEqual({
+      name: "Kleiton Albuquerque",
+      headline: "Software Developer | Java, Spring Boot | React, React Native, Vue, Node.js | Performance, UX, Testes e CI/CD",
+      experiences: [],
+    });
+  });
+
   it("does not use the full Sobre content as headline when no dedicated headline is available", () => {
     document.body.innerHTML = `
       <main>
@@ -257,6 +331,73 @@ describe("extractLinkedInProfileFromDocument", () => {
       "Analista de sistemas com Next.js, SEO técnico e APIs RESTful no setor educacional.",
       "Software Developer com Node.js para serviços transacionais de alta disponibilidade.",
       "Web Developer com Vue.js, PHP, WordPress e sustentação de aplicações para clientes.",
+    ]);
+  });
+
+  it("captures SDUI experience cards without legacy LinkedIn classes", () => {
+    window.history.replaceState(null, "", "/in/kleiton-albuquerque/details/experience/");
+    document.title = "Kleiton Albuquerque - Experiência | LinkedIn";
+
+    document.body.innerHTML = `
+      <main>
+        <h1>Experiência</h1>
+        <section componentkey="com.linkedin.sdui.profile.card.Experience">
+          <div role="button">
+            <p>Analista de sistemas</p>
+            <p>YDUQS · Tempo integral</p>
+            <p>jun de 2022 - set de 2024 · 2 anos 4 meses</p>
+            <p>Atuei no desenvolvimento e manutenção de aplicações web de grande escala com React, Next.js, Node.js, NestJS e Strapi.</p>
+          </div>
+          <div role="button">
+            <p>Software Developer</p>
+            <p>Qualicorp</p>
+            <p>jan de 2021 - mai de 2022 · 1 ano 5 meses</p>
+            <p>Desenvolvi APIs RESTful e integrações críticas com Node.js, Java e bancos relacionais.</p>
+          </div>
+          <div role="button">
+            <p>Web Developer</p>
+            <p>Freelancer</p>
+            <p>jan de 2019 - dez de 2020 · 2 anos</p>
+            <p>Criei interfaces em Vue.js e React para produtos digitais com foco em performance e UX.</p>
+          </div>
+        </section>
+      </main>
+    `;
+
+    const result = extractLinkedInProfileFromDocument(document);
+
+    expect(result.name).toBe("Kleiton Albuquerque");
+    expect(result.experiences).toEqual([
+      "Analista de sistemas | YDUQS · Tempo integral | jun de 2022 - set de 2024 · 2 anos 4 meses | Atuei no desenvolvimento e manutenção de aplicações web de grande escala com React, Next.js, Node.js, NestJS e Strapi.",
+      "Software Developer | Qualicorp | jan de 2021 - mai de 2022 · 1 ano 5 meses | Desenvolvi APIs RESTful e integrações críticas com Node.js, Java e bancos relacionais.",
+      "Web Developer | Freelancer | jan de 2019 - dez de 2020 · 2 anos | Criei interfaces em Vue.js e React para produtos digitais com foco em performance e UX.",
+    ]);
+  });
+
+  it("groups paragraph-only experience details when LinkedIn omits card selectors", () => {
+    window.history.replaceState(null, "", "/in/kleiton-albuquerque/details/experience/");
+    document.title = "Kleiton Albuquerque - Experiência | LinkedIn";
+
+    document.body.innerHTML = `
+      <main>
+        <h1>Experiência</h1>
+        <section>
+          <h2>Experiência</h2>
+          <p>Analista de sistemas</p>
+          <p>jun de 2022 - set de 2024 · 2 anos 4 meses</p>
+          <p>Atuei no desenvolvimento e manutenção de aplicações web com React, Next.js e Node.js.</p>
+          <p>Software Developer</p>
+          <p>jan de 2021 - mai de 2022 · 1 ano 5 meses</p>
+          <p>Desenvolvi APIs RESTful e integrações críticas para sistemas transacionais.</p>
+        </section>
+      </main>
+    `;
+
+    const result = extractLinkedInProfileFromDocument(document);
+
+    expect(result.experiences).toEqual([
+      "Analista de sistemas | jun de 2022 - set de 2024 · 2 anos 4 meses | Atuei no desenvolvimento e manutenção de aplicações web com React, Next.js e Node.js.",
+      "Software Developer | jan de 2021 - mai de 2022 · 1 ano 5 meses | Desenvolvi APIs RESTful e integrações críticas para sistemas transacionais.",
     ]);
   });
 

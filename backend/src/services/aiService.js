@@ -213,7 +213,7 @@ export function buildProblemas({
   const problemas = [];
 
   if (headlineLength < 40) {
-    pushIfMissing(problemas, "Headline generica ou curta demais.");
+    pushIfMissing(problemas, "Headline genérica ou curta demais.");
   }
 
   if (keywordHits < 3) {
@@ -226,21 +226,21 @@ export function buildProblemas({
   if (measuredResults < 1) {
     pushIfMissing(
       problemas,
-      "Sem metricas claras de impacto nas experiencias.",
+      "Sem métricas claras de impacto nas experiências.",
     );
   }
 
   if (experiencesCount < 3) {
     pushIfMissing(
       problemas,
-      "Poucos projetos ou experiencias detalhadas no perfil.",
+      "Poucos projetos ou experiências detalhadas no perfil.",
     );
   }
 
   if (leadershipHits < 1) {
     pushIfMissing(
       problemas,
-      "Nao ha sinais claros de lideranca, mentoria ou ownership.",
+      "Não há sinais claros de liderança, mentoria ou ownership.",
     );
   }
 
@@ -265,15 +265,15 @@ export function buildPontosFortes({
   }
 
   if (measuredResults >= 1) {
-    pushIfMissing(pontosFortes, "Resultados com impacto mensuravel");
+    pushIfMissing(pontosFortes, "Resultados com impacto mensurável");
   }
 
   if (experiencesCount >= 3) {
-    pushIfMissing(pontosFortes, "Historico profissional consistente");
+    pushIfMissing(pontosFortes, "Histórico profissional consistente");
   }
 
   if (leadershipHits >= 1) {
-    pushIfMissing(pontosFortes, "Sinais de lideranca ou mentoria");
+    pushIfMissing(pontosFortes, "Sinais de liderança ou mentoria");
   }
 
   return pontosFortes.slice(0, 4);
@@ -292,7 +292,7 @@ export function buildPontosFracos({
   }
 
   if (measuredResults < 1) {
-    pushIfMissing(pontosFracos, "Falta de metricas de impacto");
+    pushIfMissing(pontosFracos, "Falta de métricas de impacto");
   }
 
   if (experiencesCount < 3) {
@@ -300,7 +300,7 @@ export function buildPontosFracos({
   }
 
   if (leadershipHits < 1) {
-    pushIfMissing(pontosFracos, "Sem evidencia de lideranca");
+    pushIfMissing(pontosFracos, "Sem evidência de liderança");
   }
 
   return pontosFracos.slice(0, 4);
@@ -308,18 +308,18 @@ export function buildPontosFracos({
 
 export function buildBenchmark(score) {
   if (score >= 85) {
-    return "Acima da media do mercado para perfis competitivos no LinkedIn.";
+    return "Acima da média do mercado para perfis competitivos no LinkedIn.";
   }
 
   if (score >= 70) {
-    return "Bom posicionamento para o mercado, mas ainda ha espaco para diferenciar melhor resultados e especialidades.";
+    return "Bom posicionamento para o mercado, mas ainda há espaço para diferenciar melhor resultados e especialidades.";
   }
 
   if (score >= 55) {
-    return "Na media do mercado. O perfil precisa ficar mais especifico para competir melhor por oportunidades.";
+    return "Na média do mercado. O perfil precisa ficar mais específico para competir melhor por oportunidades.";
   }
 
-  return "Abaixo da media do mercado. O perfil precisa de mais clareza, provas de impacto e palavras-chave relevantes.";
+  return "Abaixo da média do mercado. O perfil precisa de mais clareza, provas de impacto e palavras-chave relevantes.";
 }
 
 export function buildRuleBasedAnalysis(profile) {
@@ -364,29 +364,29 @@ export function buildRuleBasedAnalysis(profile) {
 
   const resumo = [
     finalScore >= 70
-      ? "O perfil ja passa uma boa percepcao inicial para o mercado."
-      : "O perfil ainda nao comunica bem o valor profissional para o mercado.",
+      ? "O perfil já passa uma boa percepção inicial para o mercado."
+      : "O perfil ainda não comunica bem o valor profissional para o mercado.",
     keywordHits >= 3
       ? "As palavras-chave ajudam na descoberta por recrutadores."
       : "Faltam palavras-chave que conectem a experiencia com as buscas mais comuns do mercado.",
     measuredResults >= 1
-      ? "Ha sinais de impacto mensuravel nas experiencias listadas."
-      : "As experiencias precisam mostrar mais resultados, numeros ou impacto concreto.",
+      ? "Há sinais de impacto mensurável nas experiências listadas."
+      : "As experiências precisam mostrar mais resultados, números ou impacto concreto.",
   ].join(" ");
 
   const sugestoes = [
     headlineLength < 80
       ? "Reescreva o headline com cargo, especialidade e principal proposta de valor em uma frase objetiva."
-      : "Ajuste o headline para destacar nicho, senioridade e diferencial competitivo com mais precisao.",
+      : "Ajuste o headline para destacar nicho, senioridade e diferencial competitivo com mais precisão.",
     keywordHits < 3
-      ? "Inclua palavras-chave do seu mercado nas experiencias e no headline para melhorar a descoberta no LinkedIn."
-      : "Distribua melhor as palavras-chave entre headline e experiencias para reforcar seu posicionamento.",
+      ? "Inclua palavras-chave do seu mercado nas experiências e no headline para melhorar a descoberta no LinkedIn."
+      : "Distribua melhor as palavras-chave entre headline e experiências para reforçar seu posicionamento.",
     measuredResults < 1
-      ? "Descreva resultados com numeros, percentuais, clientes atendidos ou impacto em receita, prazo e eficiencia."
-      : "Transforme mais experiencias em casos de impacto com contexto, acao e resultado mensuravel.",
+      ? "Descreva resultados com números, percentuais, clientes atendidos ou impacto em receita, prazo e eficiência."
+      : "Transforme mais experiências em casos de impacto com contexto, ação e resultado mensurável.",
     experiencesCount < 3
-      ? "Adicione mais experiencias ou projetos relevantes para mostrar repertorio profissional."
-      : "Priorize as experiencias mais relevantes e detalhe as entregas com foco em decisao, ownership e impacto.",
+      ? "Adicione mais experiências ou projetos relevantes para mostrar repertório profissional."
+      : "Priorize as experiências mais relevantes e detalhe as entregas com foco em decisão, ownership e impacto.",
   ];
 
   return {

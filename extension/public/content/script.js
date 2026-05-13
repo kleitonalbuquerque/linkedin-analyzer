@@ -1,3 +1,4 @@
+(() => {
 function normalizeText(value) {
   return String(value || "")
     .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, " ")
@@ -23,6 +24,10 @@ const PROFILE_SECTION_HEADING_PATTERN =
   /^(sobre|about|experi[eê]ncia|experience|forma[cç][aã]o|education|compet[eê]ncias|skills|certifica[cç][oõ]es|licenses|projetos|projects)$/i;
 const HEADLINE_METADATA_TERMS = new Set([
   "live",
+  "notificacao",
+  "notificacoes",
+  "notification",
+  "notifications",
   "comentario",
   "comentarios",
   "comment",
@@ -114,14 +119,25 @@ const SOCIAL_PROOF_HEADLINE_PATTERN =
   /(?:^|\s)(?:me ajudou a conseguir (?:este|esse) emprego|helped me get this job)(?:$|\s)/i;
 const SOCIAL_CONTEXT_HEADLINE_PATTERN =
   /(?:\be mais (?:\d{1,3}(?:[.,]\d{3})+|\d+) pessoas?\b|\band (?:\d{1,3}(?:[.,]\d{3})+|\d+) other people\b|\bmutual connections?\b|\bconex(?:ao|ões|oes) em comum\b|\bfollows? you\b|\bsegue voce\b)/i;
+const EXPERIENCE_DATE_TEXT_PATTERN =
+  /\b(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez|jan\.|feb|mar\.|apr|may|jun\.|jul\.|aug|sep|sept|oct|nov\.|dec|presente|present|momento|atual|atualmente|de|of)\s+\d{4}\b|\b\d+\s+(?:ano|anos|mes|meses|mês|year|years|month|months)\b/i;
+const EXPERIENCE_ACTION_TEXT_PATTERN =
+  /\b(?:atuei|atuo|desenvolvi|desenvolvo|criei|crio|implementei|implemento|liderei|lidero|coordenei|coordeno|mantive|mantenho|otimizei|otimizo|contribui|contribuo|respons[aá]vel|foco|manuten[cç][aã]o|sustenta[cç][aã]o|arquitetura|integra[cç][aã]o|performance|produto|projeto|squad|api|apis)\b/i;
+const EXPERIENCE_ENTRY_FALLBACK_SELECTOR =
+  "[componentkey], [role='button'], article";
+const EXPERIENCE_TEXT_LEAF_SELECTOR = "p, span[aria-hidden='true']";
+const EXPERIENCE_TEXT_NOISE_PATTERN =
+  /^(experi[eê]ncia|experience|mostrar todas|show all|exibir todas|ver todas|adicionar|dispon[ií]vel para|comece j[aá]|dados de contato|mais de \d+ conex(?:ões|oes)|\d+ notifica(?:ção|ções|cao|coes))$/i;
 const EXPERIENCE_ENTRY_SELECTORS =
   ".pvs-list__paged-list-item, .artdeco-list__item, [data-view-name*='profile-component-entity'], .pvs-entity";
 const SECTION_CONTAINER_SELECTORS =
   "section, article, .artdeco-card, .pvs-list, .pvs-list__container, div[id]";
 const TOP_CARD_CONTAINER_SELECTOR = ".pv-top-card, section, .artdeco-card";
+const EXPLICIT_TOP_CARD_SELECTOR =
+  "[componentkey*='Topcard'], [componentkey*='topcard'], .pv-top-card";
 const TOP_CARD_HEADLINE_SELECTOR =
   ".text-body-medium.break-words, .pv-text-details__left-panel .text-body-medium, .text-body-medium, .break-words";
-const VISIBLE_TEXT_LEAF_SELECTOR = "span[aria-hidden='true']";
+const VISIBLE_TEXT_LEAF_SELECTOR = "span[aria-hidden='true'], p";
 
 function stripCountPrefix(value) {
   return value.replaceAll(/^\d+[\d.,k]*\s+/gi, "");
@@ -206,22 +222,94 @@ function getFirstText(selectors, root = document) {
   return "";
 }
 
-function getProfileNameElement() {
-  return (
-    Array.from(document.querySelectorAll("main h1, h1")).find((element) => {
-      const text = normalizeText(element.textContent);
+function isUsableProfileName(value) {
+  const normalized = normalizeHeadlineToken(value);
 
-      return (
-        text &&
-        hasMeaningfulLetters(text) &&
-        !PROFILE_SECTION_HEADING_PATTERN.test(text)
-      );
-    }) || null
+  return Boolean(value) &&
+    hasMeaningfulLetters(value) &&
+    !PROFILE_SECTION_HEADING_PATTERN.test(value) &&
+    !HEADLINE_METADATA_TERMS.has(normalized);
+}
+
+function getProfileSlug() {
+  return document.location?.pathname.match(/^\/in\/([^/]+)/i)?.[1]?.toLowerCase() || "";
+}
+
+function getProfileSlugFromHref(href) {
+  try {
+    return new URL(href, document.location.href).pathname.match(/^\/in\/([^/]+)/i)?.[1]?.toLowerCase() || "";
+  } catch {
+    return "";
+  }
+}
+
+function hasMatchingProfileLink(element) {
+  const link = element.closest('a[href*="/in/"]');
+
+  if (!link) {
+    return false;
+  }
+
+  const currentSlug = getProfileSlug();
+  const linkSlug = getProfileSlugFromHref(link.href);
+
+  return Boolean(linkSlug && (!currentSlug || linkSlug === currentSlug));
+}
+
+function getExplicitTopCard() {
+  const topCard = document.querySelector(EXPLICIT_TOP_CARD_SELECTOR);
+
+  if (!topCard) {
+    return null;
+  }
+
+  if (topCard.matches(TOP_CARD_CONTAINER_SELECTOR)) {
+    return topCard;
+  }
+
+  return (
+    topCard.querySelector(TOP_CARD_CONTAINER_SELECTOR) ||
+    topCard.closest(TOP_CARD_CONTAINER_SELECTOR) ||
+    topCard
   );
 }
 
-function getTopCard() {
-  const nameElement = getProfileNameElement();
+function getProfileNameElement(topCard = getExplicitTopCard()) {
+  const titleName = extractNameFromTitle();
+  const searchRoots = [topCard, document].filter(Boolean);
+
+  for (const searchRoot of searchRoots) {
+    const candidates = Array.from(searchRoot.querySelectorAll("h1, h2")).filter(
+      (element) => isUsableProfileName(normalizeText(element.textContent)),
+    );
+    const matchingProfileLink = candidates.find(hasMatchingProfileLink);
+
+    if (matchingProfileLink) {
+      return matchingProfileLink;
+    }
+
+    const titleMatch = candidates.find(
+      (element) => titleName && normalizeText(element.textContent) === titleName,
+    );
+
+    if (titleMatch) {
+      return titleMatch;
+    }
+
+    if (candidates.length) {
+      return candidates[0];
+    }
+  }
+
+  return null;
+}
+
+function getTopCard(nameElement = null) {
+  const explicitTopCard = getExplicitTopCard();
+
+  if (explicitTopCard) {
+    return explicitTopCard;
+  }
 
   if (nameElement) {
     const name = normalizeText(nameElement.textContent);
@@ -262,6 +350,42 @@ function getTopCard() {
   }
 
   return null;
+}
+
+function getNearbyHeadlineCandidates(nameElement, topCard) {
+  if (!nameElement || !topCard) {
+    return [];
+  }
+
+  const candidateElements = Array.from(
+    topCard.querySelectorAll("span[aria-hidden='true'], div, p"),
+  );
+
+  return uniqueTexts(
+    candidateElements
+      .filter((element) => {
+        if (
+          element === nameElement ||
+          element.contains(nameElement) ||
+          nameElement.contains(element)
+        ) {
+          return false;
+        }
+
+        if (element.closest("button, [role='button'], nav")) {
+          return false;
+        }
+
+        return Boolean(
+          nameElement.compareDocumentPosition(element) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+      })
+      .map((element) => normalizeText(element.textContent))
+      .filter(
+        (text) => text.length <= 220 && hasProfessionalHeadlineSignal(text),
+      ),
+  );
 }
 
 function cleanHeadline(value, name) {
@@ -404,6 +528,34 @@ function isMeaningfulExperienceFragment(text) {
   );
 }
 
+function isExperienceNoiseText(text) {
+  return EXPERIENCE_TEXT_NOISE_PATTERN.test(normalizeText(text));
+}
+
+function isLikelyExperienceText(text) {
+  const normalized = normalizeText(text);
+
+  return (
+    normalized.length >= 20 &&
+    !isExperienceNoiseText(normalized) &&
+    !SOCIAL_CONTEXT_HEADLINE_PATTERN.test(normalized) &&
+    (hasProfessionalHeadlineSignal(normalized) ||
+      EXPERIENCE_DATE_TEXT_PATTERN.test(normalized) ||
+      EXPERIENCE_ACTION_TEXT_PATTERN.test(normalized))
+  );
+}
+
+function isLikelyExperienceTitleText(text) {
+  const normalized = normalizeText(text);
+
+  return (
+    normalized.length <= 120 &&
+    hasProfessionalHeadlineSignal(normalized) &&
+    !EXPERIENCE_DATE_TEXT_PATTERN.test(normalized) &&
+    !EXPERIENCE_ACTION_TEXT_PATTERN.test(normalized)
+  );
+}
+
 function extractExperienceText(element) {
   const visibleLeafFragments = uniqueTexts(
     getLeafElements(element, VISIBLE_TEXT_LEAF_SELECTOR).map((node) =>
@@ -419,6 +571,65 @@ function extractExperienceText(element) {
   }
 
   return truncateText(normalizeText(element.textContent), MAX_EXPERIENCE_LENGTH);
+}
+
+function getFallbackExperienceElements(section) {
+  const candidates = Array.from(
+    section.querySelectorAll(EXPERIENCE_ENTRY_FALLBACK_SELECTOR),
+  )
+    .filter((element) => element !== section)
+    .filter((element) => isLikelyExperienceText(extractExperienceText(element)));
+
+  return candidates.filter(
+    (candidate) =>
+      !candidates.some((other) => other !== candidate && candidate.contains(other)),
+  );
+}
+
+function extractFallbackExperienceTexts(section) {
+  const fallbackElements = getFallbackExperienceElements(section);
+
+  if (fallbackElements.length) {
+    return fallbackElements.map((element) => extractExperienceText(element));
+  }
+
+  const textFragments = uniqueTexts(
+    getLeafElements(section, EXPERIENCE_TEXT_LEAF_SELECTOR)
+      .map((element) => normalizeText(element.textContent))
+      .filter((text) => text.length >= 2 && !isExperienceNoiseText(text)),
+  );
+  const groups = [];
+  let currentGroup = [];
+
+  for (const fragment of textFragments) {
+    const startsNewExperience =
+      isLikelyExperienceTitleText(fragment) &&
+      currentGroup.some(
+        (item) =>
+          EXPERIENCE_DATE_TEXT_PATTERN.test(item) ||
+          EXPERIENCE_ACTION_TEXT_PATTERN.test(item),
+      );
+
+    if (startsNewExperience) {
+      groups.push(currentGroup);
+      currentGroup = [fragment];
+      continue;
+    }
+
+    if (currentGroup.length || isLikelyExperienceText(fragment)) {
+      currentGroup.push(fragment);
+    }
+  }
+
+  if (currentGroup.length) {
+    groups.push(currentGroup);
+  }
+
+  return groups
+    .map((group) =>
+      truncateText(uniqueTexts(group).join(" | "), MAX_EXPERIENCE_LENGTH),
+    )
+    .filter(isLikelyExperienceText);
 }
 
 function extractExperienceTexts(section) {
@@ -438,16 +649,18 @@ function extractExperienceTexts(section) {
     : leafExperienceElements.length
       ? leafExperienceElements
       : Array.from(section.querySelectorAll(EXPERIENCE_ENTRY_SELECTORS));
+  const primaryTexts = sourceElements
+    .map((element) => extractExperienceText(element))
+    .filter((text) => text.length >= 20)
+    .filter(
+      (text) => !/seguidores|followers|conexoes|connections/i.test(text),
+    )
+    .filter((text) => !/^(experi[eê]ncia|experience)$/i.test(text));
+  const fallbackTexts = primaryTexts.length
+    ? []
+    : extractFallbackExperienceTexts(section);
 
-  return uniqueTexts(
-    sourceElements
-      .map((element) => extractExperienceText(element))
-      .filter((text) => text.length >= 20)
-      .filter(
-        (text) => !/seguidores|followers|conexoes|connections/i.test(text),
-      )
-      .filter((text) => !/^(experi[eê]ncia|experience)$/i.test(text)),
-  );
+  return uniqueTexts([...primaryTexts, ...fallbackTexts]);
 }
 
 function hasExperienceDetailsLink() {
@@ -455,14 +668,18 @@ function hasExperienceDetailsLink() {
 }
 
 function getProfileData() {
-  const topCard = getTopCard();
+  const explicitTopCard = getExplicitTopCard();
+  const nameElement = getProfileNameElement(explicitTopCard);
+  const topCard = getTopCard(nameElement);
   const name = topCard
-    ? getFirstText(["h1", ".pv-text-details__left-panel h1"], topCard) ||
+    ? normalizeText(nameElement?.textContent) ||
+      getFirstText(["h1", "h2", ".pv-text-details__left-panel h1", ".pv-text-details__left-panel h2"], topCard) ||
       extractNameFromTitle()
     : extractNameFromTitle();
   const experienceSection = findExperienceSection();
   const topCardHeadlineCandidates = topCard
     ? [
+        ...(nameElement ? getNearbyHeadlineCandidates(nameElement, topCard) : []),
         getFirstText(
           [
             ".text-body-medium.break-words",
@@ -500,12 +717,27 @@ function getProfileData() {
   };
 }
 
+const CONTENT_SCRIPT_STATE_KEY = "__linkedinAnalyzerContentScriptState";
+const previousState = globalThis[CONTENT_SCRIPT_STATE_KEY];
+
+if (previousState?.listener) {
+  chrome.runtime.onMessage.removeListener(previousState.listener);
+}
+
 console.info("[LinkedIn Analyzer] Content script loaded");
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+const profileMessageListener = (request, sender, sendResponse) => {
   if (request.type === "GET_PROFILE") {
     const profile = getProfileData();
     console.info("[LinkedIn Analyzer] GET_PROFILE received", profile);
     sendResponse(profile);
   }
-});
+};
+
+chrome.runtime.onMessage.addListener(profileMessageListener);
+
+globalThis[CONTENT_SCRIPT_STATE_KEY] = {
+  version: PROFILE_CAPTURE_VERSION,
+  listener: profileMessageListener,
+};
+})();

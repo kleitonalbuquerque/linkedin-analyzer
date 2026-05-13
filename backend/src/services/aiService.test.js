@@ -134,7 +134,7 @@ describe("aiService helpers", () => {
 
     expect(pontosFortes).toContain("Backend");
     expect(pontosFracos).toContain("Palavras-chave insuficientes");
-    expect(problemas).toContain("Headline generica ou curta demais.");
+    expect(problemas).toContain("Headline genérica ou curta demais.");
 
     const list = [];
     pushIfMissing(list, "item");
@@ -143,10 +143,10 @@ describe("aiService helpers", () => {
   });
 
   it("builds benchmark ranges", () => {
-    expect(buildBenchmark(90)).toContain("Acima da media");
+    expect(buildBenchmark(90)).toContain("Acima da média");
     expect(buildBenchmark(75)).toContain("Bom posicionamento");
-    expect(buildBenchmark(60)).toContain("Na media do mercado");
-    expect(buildBenchmark(30)).toContain("Abaixo da media");
+    expect(buildBenchmark(60)).toContain("Na média do mercado");
+    expect(buildBenchmark(30)).toContain("Abaixo da média");
   });
 
   it("builds a deterministic rule-based analysis", () => {
