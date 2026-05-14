@@ -54,10 +54,12 @@ O comando `npm run assets:store` gera automaticamente as pecas de publicacao em 
 - `screenshot-02-score.png`
 - `screenshot-03-insights.png`
 - `screenshot-04-pdf.png`
+- `screenshot-05-privacy.png`
 - `promo-small-440x280.png`
 - `promo-marquee-1400x560.png`
 
 O script tambem salva a versao SVG de cada arte para facilitar ajustes posteriores.
+Para gerar uma variacao sem substituir os arquivos atuais, use `npm run assets:store -- --suffix v2`.
 
 ## Empacotar o build para upload
 

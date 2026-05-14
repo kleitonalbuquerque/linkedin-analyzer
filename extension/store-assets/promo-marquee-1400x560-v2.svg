@@ -1,0 +1,86 @@
+
+    <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560">
+      <defs>
+        <linearGradient id="pageBg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#eff6ff" />
+          <stop offset="48%" stop-color="#f8fafc" />
+          <stop offset="100%" stop-color="#ecfeff" />
+        </linearGradient>
+        <linearGradient id="buttonPrimary" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0f766e" />
+          <stop offset="100%" stop-color="#0ea5e9" />
+        </linearGradient>
+        <linearGradient id="analysisBg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(240,249,255,0.95)" />
+          <stop offset="100%" stop-color="rgba(255,255,255,0.98)" />
+        </linearGradient>
+        <linearGradient id="cardGlow" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.35)" />
+          <stop offset="100%" stop-color="rgba(14,165,233,0.12)" />
+        </linearGradient>
+        <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="20" stdDeviation="22" flood-color="rgba(15,23,42,0.18)" />
+        </filter>
+      </defs>
+      
+      
+    <rect width="1400" height="560" fill="url(#pageBg)" />
+    <circle cx="1280" cy="100" r="160" fill="rgba(14,165,233,0.12)" />
+    <circle cx="196" cy="480" r="210" fill="rgba(15,118,110,0.14)" />
+    <circle cx="812" cy="520" r="110" fill="rgba(245,158,11,0.14)" />
+    <path d="M 1008 44.800000000000004 C 1204 89.60000000000001, 1316 156.8, 1372 302.40000000000003" fill="none" stroke="rgba(15,23,42,0.08)" stroke-width="2" stroke-dasharray="10 14" />
+  
+      <rect x="30" y="30" width="1340" height="500" rx="36" fill="rgba(255,255,255,0.74)" stroke="rgba(255,255,255,0.72)" />
+      <image href="data:image/png;base64,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" x="90" y="88" width="74" height="74" />
+      <text x="184" y="136" fill="#0a66c2" font-size="26" font-weight="800" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">LinkedIn Analyzer</text>
+      <text x="90" y="220" fill="#0f172a" font-size="54" font-weight="800" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">Diagnostico de perfil com score de</text>
+<text x="90" y="282" fill="#0f172a" font-size="54" font-weight="800" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">mercado para melhorar seu</text>
+<text x="90" y="344" fill="#0f172a" font-size="54" font-weight="800" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">posicionamento no LinkedIn.</text>
+      <text x="90" y="386" fill="#334155" font-size="24" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">Analise o perfil aberto, receba sugestoes com IA e</text>
+<text x="90" y="420" fill="#334155" font-size="24" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">exporte um PDF com os pontos prioritarios da revisao.</text>
+      
+    <rect x="90" y="434" width="168" height="30" rx="15" fill="rgba(255,255,255,0.78)" />
+    <text x="174" y="454" fill="#0f172a" font-size="12" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Score de mercado</text>
+  
+      
+    <rect x="272" y="434" width="152" height="30" rx="15" fill="rgba(255,255,255,0.78)" />
+    <text x="348" y="454" fill="#0f172a" font-size="12" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Sugestoes com IA</text>
+  
+      
+    <rect x="438" y="434" width="152" height="30" rx="15" fill="rgba(255,255,255,0.78)" />
+    <text x="514" y="454" fill="#0f172a" font-size="12" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">PDF exportavel</text>
+  
+      <g filter="url(#cardShadow)">
+        
+    <g>
+      <rect x="876" y="56" width="430" height="448" rx="28" fill="rgba(255,255,255,0.94)" stroke="rgba(15, 23, 42, 0.10)" />
+      <rect x="877" y="57" width="428" height="446" rx="27" fill="url(#cardGlow)" opacity="0.65" />
+      <text x="902" y="92" fill="#f59e0b" font-size="12" font-weight="800" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">LINKEDIN ANALYZER</text>
+      <text x="902" y="130" fill="#0f172a" font-size="28" font-weight="800" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">Diagnostico de perfil com score de</text>
+<text x="902" y="164" fill="#0f172a" font-size="28" font-weight="800" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">mercado</text>
+      <text x="902" y="212" fill="#334155" font-size="15" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">Capture o perfil aberto no LinkedIn,</text>
+<text x="902" y="233" fill="#334155" font-size="15" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">gere sugestoes com IA e exporte um PDF</text>
+<text x="902" y="254" fill="#334155" font-size="15" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start" opacity="1">do resultado.</text>
+      <rect x="902" y="293" width="183" height="48" rx="14" fill="url(#buttonPrimary)" />
+      <text x="993" y="323" fill="#ffffff" font-size="15" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Analisar perfil</text>
+      <rect x="1097" y="293" width="183" height="48" rx="14" fill="#f8fafc" stroke="rgba(15, 23, 42, 0.10)" />
+      <text x="1188" y="323" fill="#0f172a" font-size="15" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Exportar PDF</text>
+    </g>
+  
+      <g>
+        <rect x="902" y="375" width="378" height="105" rx="22" fill="url(#analysisBg)" stroke="rgba(14,165,233,0.12)" />
+        <text x="920" y="417" fill="#64748b" font-size="13" font-weight="800" font-family="Segoe UI, Arial, sans-serif">Score</text>
+        <text x="920" y="481" fill="#0f172a" font-size="64" font-weight="800" font-family="Segoe UI, Arial, sans-serif">82</text>
+        
+    <rect x="1016" y="441" width="78" height="30" rx="15" fill="rgba(245,158,11,0.18)" />
+    <text x="1055" y="461" fill="#0f172a" font-size="12" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Pleno</text>
+  
+        
+    <rect x="1106" y="441" width="132" height="30" rx="15" fill="#d1fae5" />
+    <text x="1172" y="461" fill="#064e3b" font-size="12" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Posicionamento</text>
+  
+      </g>
+      </g>
+    
+    </svg>
+  

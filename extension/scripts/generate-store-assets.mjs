@@ -11,6 +11,58 @@ const rootDir = path.resolve(
 const outputDir = path.join(rootDir, "store-assets");
 const iconPath = path.join(rootDir, "public", "icons", "icon-128.png");
 
+function parseOptions(argv) {
+  let suffix = "";
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === "--suffix") {
+      const nextValue = argv[index + 1];
+
+      if (!nextValue || nextValue.startsWith("--")) {
+        throw new Error("Expected a value after --suffix");
+      }
+
+      suffix = nextValue;
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--suffix=")) {
+      suffix = arg.slice("--suffix=".length);
+      continue;
+    }
+
+    throw new Error(`Unknown option: ${arg}`);
+  }
+
+  const normalizedSuffix = suffix.trim().replace(/^-+/, "");
+
+  if (!normalizedSuffix) {
+    return { suffix: "" };
+  }
+
+  if (!/^[a-z0-9][a-z0-9-]*$/i.test(normalizedSuffix)) {
+    throw new Error(
+      "Asset suffix must use only letters, numbers, and hyphens.",
+    );
+  }
+
+  return { suffix: normalizedSuffix };
+}
+
+function appendSuffix(fileName, suffix) {
+  if (!suffix) {
+    return fileName;
+  }
+
+  const extension = path.extname(fileName);
+  const baseName = fileName.slice(0, -extension.length);
+
+  return `${baseName}-${suffix}${extension}`;
+}
+
 const palette = {
   ink: "#0f172a",
   slate: "#334155",
@@ -452,6 +504,63 @@ function screenshotPdf() {
   });
 }
 
+function screenshotPrivacy() {
+  const width = 1280;
+  const height = 800;
+
+  return withFrame({
+    width,
+    height,
+    body: `
+      ${decorativeBackground(width, height)}
+      <rect x="48" y="52" width="1184" height="696" rx="34" fill="rgba(255,255,255,0.68)" stroke="rgba(255,255,255,0.72)" />
+      ${heroText({
+        x: 104,
+        y: 124,
+        title: "Voce controla quando a analise comeca.",
+        subtitle:
+          "A extensao so envia dados visiveis do perfil depois que voce clica em Analisar perfil.",
+        chips: ["Acao manual", "Dados visiveis", "Uso transparente"],
+        showChips: false,
+      })}
+      <g>
+        <rect x="104" y="478" width="238" height="170" rx="24" fill="rgba(255,255,255,0.88)" stroke="rgba(15,23,42,0.08)" />
+        <circle cx="138" cy="520" r="18" fill="rgba(15,118,110,0.14)" />
+        <path d="M 130 520 L 136 526 L 148 512" fill="none" stroke="${palette.teal}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+        ${textBlock({ x: 128, y: 562, lines: ["Antes do clique"], fontSize: 22, lineHeight: 28, fill: palette.ink, weight: 800 })}
+        ${textBlock({ x: 128, y: 598, lines: wrapLines("Nenhum diagnostico e iniciado automaticamente.", 22), fontSize: 16, lineHeight: 23, fill: palette.slate })}
+        <rect x="370" y="478" width="238" height="170" rx="24" fill="rgba(255,255,255,0.88)" stroke="rgba(15,23,42,0.08)" />
+        <circle cx="404" cy="520" r="18" fill="rgba(14,165,233,0.14)" />
+        <rect x="397" y="516" width="14" height="14" rx="3" fill="none" stroke="${palette.cyan}" stroke-width="4" />
+        <path d="M 400 516 V 510 C 400 504, 408 504, 408 510 V 516" fill="none" stroke="${palette.cyan}" stroke-width="4" stroke-linecap="round" />
+        ${textBlock({ x: 394, y: 562, lines: ["Dados visiveis"], fontSize: 22, lineHeight: 28, fill: palette.ink, weight: 800 })}
+        ${textBlock({ x: 394, y: 598, lines: wrapLines("A leitura usa apenas informacoes exibidas no perfil aberto.", 22), fontSize: 16, lineHeight: 23, fill: palette.slate })}
+      </g>
+      <g filter="url(#cardShadow)">
+        <rect x="716" y="104" width="442" height="586" rx="30" fill="rgba(255,255,255,0.94)" stroke="${palette.border}" />
+        <rect x="717" y="105" width="440" height="584" rx="29" fill="url(#cardGlow)" opacity="0.65" />
+        ${textBlock({ x: 746, y: 142, lines: ["LINKEDIN ANALYZER"], fontSize: 12, lineHeight: 16, fill: palette.amber, weight: 800 })}
+        ${textBlock({ x: 746, y: 196, lines: wrapLines("Envio iniciado somente por voce", 22), fontSize: 30, lineHeight: 38, fill: palette.ink, weight: 800 })}
+        ${textBlock({ x: 746, y: 284, lines: wrapLines("Revise o perfil aberto e comece a analise quando fizer sentido.", 34), fontSize: 16, lineHeight: 24, fill: palette.slate })}
+        <rect x="746" y="340" width="382" height="174" rx="24" fill="url(#analysisBg)" stroke="rgba(14,165,233,0.12)" />
+        <circle cx="786" cy="390" r="20" fill="rgba(15,118,110,0.14)" />
+        <path d="M 778 390 L 784 396 L 796 382" fill="none" stroke="${palette.teal}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+        ${textBlock({ x: 824, y: 396, lines: ["Perfil aberto no LinkedIn"], fontSize: 16, lineHeight: 22, fill: palette.ink, weight: 700 })}
+        <circle cx="786" cy="438" r="20" fill="rgba(14,165,233,0.14)" />
+        <path d="M 778 438 L 784 444 L 796 430" fill="none" stroke="${palette.cyan}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+        ${textBlock({ x: 824, y: 444, lines: ["Nome, headline e experiencias"], fontSize: 16, lineHeight: 22, fill: palette.ink, weight: 700 })}
+        <circle cx="786" cy="486" r="20" fill="rgba(245,158,11,0.16)" />
+        <path d="M 778 486 L 784 492 L 796 478" fill="none" stroke="${palette.amber}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+        ${textBlock({ x: 824, y: 492, lines: ["Analise enviada apos o clique"], fontSize: 16, lineHeight: 22, fill: palette.ink, weight: 700 })}
+        <rect x="746" y="552" width="182" height="50" rx="15" fill="url(#buttonPrimary)" />
+        <text x="837" y="583" fill="${palette.white}" font-size="15" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Analisar perfil</text>
+        <rect x="944" y="552" width="184" height="50" rx="15" fill="${palette.surface}" stroke="${palette.border}" />
+        <text x="1036" y="583" fill="${palette.ink}" font-size="15" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Exportar PDF</text>
+      </g>
+    `,
+  });
+}
+
 function promoSmall(iconDataUri) {
   const width = 440;
   const height = 280;
@@ -503,10 +612,15 @@ async function writeAsset(fileName, svgMarkup) {
   const targetPng = path.join(outputDir, fileName);
 
   await fs.writeFile(targetSvg, svgMarkup, "utf8");
-  await sharp(Buffer.from(svgMarkup)).png().toFile(targetPng);
+  await sharp(Buffer.from(svgMarkup))
+    .flatten({ background: palette.white })
+    .png()
+    .toFile(targetPng);
 }
 
 async function main() {
+  const { suffix } = parseOptions(process.argv.slice(2));
+
   await fs.mkdir(outputDir, { recursive: true });
 
   const iconBuffer = await fs.readFile(iconPath);
@@ -517,15 +631,21 @@ async function main() {
     ["screenshot-02-score.png", screenshotScore()],
     ["screenshot-03-insights.png", screenshotInsights()],
     ["screenshot-04-pdf.png", screenshotPdf()],
+    ["screenshot-05-privacy.png", screenshotPrivacy()],
     ["promo-small-440x280.png", promoSmall(iconDataUri)],
     ["promo-marquee-1400x560.png", promoMarquee(iconDataUri)],
   ];
 
   await Promise.all(
-    assets.map(([fileName, svgMarkup]) => writeAsset(fileName, svgMarkup)),
+    assets.map(([fileName, svgMarkup]) =>
+      writeAsset(appendSuffix(fileName, suffix), svgMarkup),
+    ),
   );
 
-  console.log(`Generated ${assets.length} store assets in ${outputDir}`);
+  const suffixLabel = suffix ? ` with suffix "${suffix}"` : "";
+  console.log(
+    `Generated ${assets.length} store assets${suffixLabel} in ${outputDir}`,
+  );
 }
 
 try {
